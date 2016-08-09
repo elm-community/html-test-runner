@@ -1,5 +1,5 @@
 {
-    "version": "3.0.0",
+    "version": "1.0.0",
     "summary": "Run elm-test tests in a browser.",
     "repository": "https://github.com/rtfeldman/html-test-runner.git",
     "license": "BSD-3-Clause",
