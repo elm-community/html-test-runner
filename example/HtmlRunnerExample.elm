@@ -2,9 +2,9 @@ module HtmlRunnerExample exposing (..)
 
 {-| HOW TO RUN THIS EXAMPLE
 
-$ elm-reactor
-
-Visit http://localhost:8000 and bring up this file.
+1. Run elm-reactor from the same directory as your tests' elm-package.json. (For example, if you have tests/elm-package.json, then cd into tests/ and
+run elm-reactor.)
+2. Visit http://localhost:8000 and bring up this file.
 -}
 
 import String
