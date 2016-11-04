@@ -1,11 +1,11 @@
-module Test.Runner.Html exposing (run, runWithOptions)
+module Test.Runner.Html exposing (Model, Msg, run, runWithOptions)
 
 {-| HTML Runner
 
 Runs tests in a browser and reports the results in the DOM. You can bring up
 one of these tests in elm-reactor to have it run and show outputs.
 
-@docs run, runWithOptions
+@docs run, runWithOptions, Model, Msg
 
 -}
 
@@ -21,12 +21,14 @@ import Test.Runner.Html.App
 import String
 import Random.Pcg as Random
 import Time exposing (Time)
+import Tuple
 
 
 type alias TestId =
     Int
 
 
+{-| -}
 type alias Model =
     { available : Dict TestId (() -> ( List String, List Expectation ))
     , running : Set TestId
@@ -37,6 +39,7 @@ type alias Model =
     }
 
 
+{-| -}
 type Msg
     = Dispatch
     | Finish Time
@@ -143,7 +146,7 @@ view model =
 
         failures : List ( List String, List Expectation )
         failures =
-            List.filter (snd >> List.any ((/=) Expect.pass)) model.completed
+            List.filter (Tuple.second >> List.any ((/=) Expect.pass)) model.completed
     in
         div [ style [ ( "width", "960px" ), ( "margin", "auto 40px" ), ( "font-family", "verdana, sans-serif" ) ] ]
             [ summary
@@ -212,7 +215,7 @@ update msg model =
         Dispatch ->
             case model.queue of
                 [] ->
-                    ( model, Task.perform never Finish Time.now )
+                    ( model, Task.perform Finish Time.now )
 
                 testId :: newQueue ->
                     case Dict.get testId model.available of
@@ -245,7 +248,7 @@ update msg model =
 dispatch : Cmd Msg
 dispatch =
     Task.succeed Dispatch
-        |> Task.perform identity identity
+        |> Task.perform identity
 
 
 init : Time -> List (() -> ( List String, List Expectation )) -> ( Model, Cmd Msg )
@@ -258,7 +261,7 @@ init startTime thunks =
         model =
             { available = Dict.fromList indexedThunks
             , running = Set.empty
-            , queue = List.map fst indexedThunks
+            , queue = List.map Tuple.first indexedThunks
             , completed = []
             , startTime = startTime
             , finishTime = Nothing
@@ -277,7 +280,7 @@ formatDuration time =
 Fuzz tests use a default run count of 100, and an initial seed based on the
 system time when the test runs begin.
 -}
-run : Test -> Program Never
+run : Test -> Program Never (Test.Runner.Html.App.Model Msg Model) (Test.Runner.Html.App.Msg Msg)
 run =
     runWithOptions Nothing Nothing
 
@@ -285,7 +288,11 @@ run =
 {-| Run the test using the provided options. If `Nothing` is provided for either
 `runs` or `seed`, it will fall back on the options used in [`run`](#run).
 -}
-runWithOptions : Maybe Int -> Maybe Random.Seed -> Test -> Program Never
+runWithOptions :
+    Maybe Int
+    -> Maybe Random.Seed
+    -> Test
+    -> Program Never (Test.Runner.Html.App.Model Msg Model) (Test.Runner.Html.App.Msg Msg)
 runWithOptions runs seed =
     Test.Runner.Html.App.run
         { runs = runs
