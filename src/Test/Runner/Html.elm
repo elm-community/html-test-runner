@@ -1,11 +1,11 @@
-module Test.Runner.Html exposing (Model, Msg, run, runWithOptions)
+module Test.Runner.Html exposing (TestProgram, run, runWithOptions)
 
 {-| HTML Runner
 
 Runs tests in a browser and reports the results in the DOM. You can bring up
 one of these tests in elm-reactor to have it run and show outputs.
 
-@docs run, runWithOptions, Model, Msg
+@docs run, runWithOptions, TestProgram
 
 -}
 
@@ -17,7 +17,7 @@ import Html.Attributes exposing (..)
 import Dict exposing (Dict)
 import Task
 import Set exposing (Set)
-import Test.Runner.Html.App
+import Test.Runner.Html.App as App
 import String
 import Random.Pcg as Random
 import Time exposing (Time)
@@ -28,7 +28,6 @@ type alias TestId =
     Int
 
 
-{-| -}
 type alias Model =
     { available : Dict TestId (() -> ( List String, List Expectation ))
     , running : Set TestId
@@ -39,10 +38,15 @@ type alias Model =
     }
 
 
-{-| -}
 type Msg
     = Dispatch
     | Finish Time
+
+
+{-| A program which will run tests and report their results.
+-}
+type alias TestProgram =
+    Program Never (App.Model Msg Model) (App.Msg Msg)
 
 
 viewLabels : List String -> List (Html a)
@@ -157,11 +161,6 @@ view model =
 resultsStyle : Html.Attribute a
 resultsStyle =
     style [ ( "font-size", "14px" ), ( "line-height", "1.3" ), ( "font-family", "Menlo, Consolas, \"Fira Mono\", \"DejaVu Sans Mono\", \"Liberation Monospace\", \"Liberation Mono\", Monaco, \"Lucida Console\", \"Courier New\", monospace" ) ]
-
-
-never : Never -> a
-never a =
-    never a
 
 
 viewFailures : ( List String, List Expectation ) -> Html a
@@ -280,7 +279,7 @@ formatDuration time =
 Fuzz tests use a default run count of 100, and an initial seed based on the
 system time when the test runs begin.
 -}
-run : Test -> Program Never (Test.Runner.Html.App.Model Msg Model) (Test.Runner.Html.App.Msg Msg)
+run : Test -> TestProgram
 run =
     runWithOptions Nothing Nothing
 
@@ -288,13 +287,9 @@ run =
 {-| Run the test using the provided options. If `Nothing` is provided for either
 `runs` or `seed`, it will fall back on the options used in [`run`](#run).
 -}
-runWithOptions :
-    Maybe Int
-    -> Maybe Random.Seed
-    -> Test
-    -> Program Never (Test.Runner.Html.App.Model Msg Model) (Test.Runner.Html.App.Msg Msg)
+runWithOptions : Maybe Int -> Maybe Random.Seed -> Test -> TestProgram
 runWithOptions runs seed =
-    Test.Runner.Html.App.run
+    App.run
         { runs = runs
         , seed = seed
         }

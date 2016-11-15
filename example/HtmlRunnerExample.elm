@@ -11,12 +11,11 @@ import String
 import Expect
 import Test exposing (..)
 import Test.Runner.Html
-import Test.Runner.Html.App
 import Fuzz exposing (..)
 import Char
 
 
-main : Program Never (Test.Runner.Html.App.Model Test.Runner.Html.Msg Test.Runner.Html.Model) (Test.Runner.Html.App.Msg Test.Runner.Html.Msg)
+main : Test.Runner.Html.TestProgram
 main =
     [ testWithoutNums
     , testOxfordify
