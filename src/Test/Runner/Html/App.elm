@@ -1,8 +1,8 @@
-module Test.Runner.Html.App exposing (run)
+module Test.Runner.Html.App exposing (Model, Msg, run)
 
 {-| Test runner for a Html.App
 
-@docs run
+@docs run, Model, Msg
 
 -}
 
@@ -10,17 +10,18 @@ import Test exposing (Test)
 import Test.Runner exposing (Runner(..))
 import Expect exposing (Expectation)
 import Html exposing (Html, text)
-import Html.App
 import Task
 import Random.Pcg as Random
 import Time exposing (Time)
 
 
+{-| -}
 type Msg subMsg
     = Init Time
     | SubMsg subMsg
 
 
+{-| -}
 type Model subMsg subModel
     = Uninitialized (SubUpdate subMsg subModel) (Maybe Random.Seed) Int Test (Time -> List (() -> ( List String, List Expectation )) -> ( subModel, Cmd subMsg ))
     | Initialized (SubUpdate subMsg subModel) subModel
@@ -84,7 +85,7 @@ initOrView view model =
             text ""
 
         Initialized _ subModel ->
-            Html.App.map SubMsg (view subModel)
+            Html.map SubMsg (view subModel)
 
 
 type alias SubUpdate msg model =
@@ -135,19 +136,19 @@ toThunksHelp labels runner =
 
 {-| Run the tests and render the results as a Web page.
 -}
-run : RunnerOptions -> AppOptions msg model -> Test -> Program Never
+run : RunnerOptions -> AppOptions msg model -> Test -> Program Never (Model msg model) (Msg msg)
 run runnerOpts appOpts test =
     let
         runs =
             Maybe.withDefault defaultRunCount runnerOpts.runs
 
         cmd =
-            Task.perform fromNever Init Time.now
+            Task.perform Init Time.now
 
         init =
             ( Uninitialized appOpts.update runnerOpts.seed runs test appOpts.init, cmd )
     in
-        Html.App.program
+        Html.program
             { init = init
             , update = initOrUpdate
             , view = initOrView appOpts.view

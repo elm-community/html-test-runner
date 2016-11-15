@@ -15,7 +15,7 @@ import Fuzz exposing (..)
 import Char
 
 
-main : Program Never
+main : Test.Runner.Html.TestProgram
 main =
     [ testWithoutNums
     , testOxfordify
