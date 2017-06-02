@@ -23,14 +23,14 @@ import Expect exposing (Expectation)
 
 
 type Msg
-    = Init Time
+    = Start Time
     | Dispatch
     | Finish Time
 
 
 type Model
-    = Uninitialized (Maybe Random.Seed) Int Test
-    | Initialized View.Model
+    = NotStarted (Maybe Random.Seed) Int Test
+    | Started View.Model
 
 
 {-| A program which will run tests and report their results.
@@ -39,29 +39,22 @@ type alias TestProgram =
     Program Never Model Msg
 
 
-type alias SubUpdate msg model =
-    msg -> model -> ( model, Cmd msg )
-
-
-type alias RunnerOptions =
-    { seed : Maybe Random.Seed
-    , runs : Maybe Int
-    }
-
-
 warn : String -> a -> a
 warn =
     Debug.log
 
 
+{-| Dispatch as a Cmd so as to yield to the UI
+    thread in between test executions.
+-}
 dispatch : Cmd Msg
 dispatch =
     Task.succeed Dispatch
         |> Task.perform identity
 
 
-initialize : Time -> List (() -> ( List String, List Expectation )) -> ( Model, Cmd Msg )
-initialize startTime thunks =
+start : Time -> List (() -> ( List String, List Expectation )) -> ( Model, Cmd Msg )
+start startTime thunks =
     let
         indexedThunks : List ( Int, () -> ( List String, List Expectation ) )
         indexedThunks =
@@ -76,7 +69,7 @@ initialize startTime thunks =
             , finishTime = Nothing
             }
     in
-        ( Initialized model, dispatch )
+        ( Started model, dispatch )
 
 
 {-| Run the test and report the results.
@@ -99,10 +92,10 @@ runWithOptions maybeRuns seed test =
             Maybe.withDefault defaultRunCount maybeRuns
 
         getTime =
-            Task.perform Init Time.now
+            Task.perform Start Time.now
     in
         Html.program
-            { init = ( Uninitialized seed runs test, getTime )
+            { init = ( NotStarted seed runs test, getTime )
             , update = update
             , view = view
             , subscriptions = \_ -> Sub.none
@@ -119,7 +112,7 @@ timeToSeed time =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
-        ( Init time, Uninitialized seed runs test ) ->
+        ( Start time, NotStarted seed runs test ) ->
             let
                 finalSeed =
                     case seed of
@@ -131,27 +124,27 @@ update msg model =
             in
                 test
                     |> Test.Runner.fromTest runs finalSeed
-                    |> toThunks
-                    |> initialize time
+                    |> toThunks []
+                    |> start time
 
-        ( Finish time, Initialized viewModel ) ->
+        ( Finish time, Started viewModel ) ->
             case viewModel.finishTime of
                 Nothing ->
-                    ( Initialized { viewModel | finishTime = Just time }, Cmd.none )
+                    ( Started { viewModel | finishTime = Just time }, Cmd.none )
 
                 Just _ ->
-                    ( Initialized viewModel, Cmd.none )
+                    ( Started viewModel, Cmd.none )
                         |> warn "Attempted to Finish more than once!"
 
-        ( Dispatch, Initialized viewModel ) ->
+        ( Dispatch, Started viewModel ) ->
             case viewModel.queue of
                 [] ->
-                    ( Initialized viewModel, Task.perform Finish Time.now )
+                    ( Started viewModel, Task.perform Finish Time.now )
 
                 testId :: newQueue ->
                     case Dict.get testId viewModel.available of
                         Nothing ->
-                            ( Initialized viewModel, Cmd.none )
+                            ( Started viewModel, Cmd.none )
                                 |> warn ("Could not find testId " ++ toString testId)
 
                         Just run ->
@@ -168,46 +161,37 @@ update msg model =
                                         , available = available
                                         , queue = newQueue
                                     }
-
-                                {- Dispatch as a Cmd so as to yield to the UI
-                                   thread in between test executions.
-                                -}
                             in
-                                ( Initialized newModel, dispatch )
+                                ( Started newModel, dispatch )
 
-        ( Init _, Initialized _ ) ->
-            Debug.crash "Attempted to init twice!"
+        ( Start _, Started _ ) ->
+            Debug.crash "Attempted to start twice!"
 
-        ( _, Uninitialized _ _ _ ) ->
-            Debug.crash "Attempted to run a Msg pre-Init!"
+        ( _, NotStarted _ _ _ ) ->
+            Debug.crash "Attempted to run a Msg pre-Start!"
 
 
 view : Model -> Html Msg
 view model =
     case model of
-        Uninitialized _ _ _ ->
-            View.uninitialized
+        NotStarted _ _ _ ->
+            View.notStarted
 
-        Initialized viewModel ->
-            View.initialized viewModel
-
-
-toThunks : Runner -> List (() -> ( List String, List Expectation ))
-toThunks =
-    toThunksHelp []
+        Started viewModel ->
+            View.started viewModel
 
 
-toThunksHelp : List String -> Runner -> List (() -> ( List String, List Expectation ))
-toThunksHelp labels runner =
+toThunks : List String -> Runner -> List (() -> ( List String, List Expectation ))
+toThunks labels runner =
     case runner of
         Runnable runnable ->
             [ \() -> ( labels, Test.Runner.run runnable ) ]
 
         Labeled label subRunner ->
-            toThunksHelp (label :: labels) subRunner
+            toThunks (label :: labels) subRunner
 
         Batch runners ->
-            List.concatMap (toThunksHelp labels) runners
+            List.concatMap (toThunks labels) runners
 
 
 defaultRunCount : Int

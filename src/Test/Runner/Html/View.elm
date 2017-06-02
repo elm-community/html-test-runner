@@ -1,8 +1,8 @@
 module Test.Runner.Html.View
     exposing
         ( Model
-        , uninitialized
-        , initialized
+        , notStarted
+        , started
         )
 
 import Dict exposing (Dict)
@@ -25,13 +25,13 @@ type alias Model =
     }
 
 
-uninitialized : Html a
-uninitialized =
+notStarted : Html a
+notStarted =
     text ""
 
 
-initialized : Model -> Html a
-initialized model =
+started : Model -> Html a
+started model =
     let
         summary =
             case model.finishTime of
