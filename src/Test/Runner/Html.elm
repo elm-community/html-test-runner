@@ -9,239 +9,49 @@ one of these tests in elm-reactor to have it run and show outputs.
 
 -}
 
-import Test exposing (Test)
-import Test.Runner exposing (formatLabels)
-import Expect exposing (Expectation)
-import Html exposing (..)
-import Html.Attributes exposing (..)
 import Dict exposing (Dict)
-import Task
-import Set exposing (Set)
-import Test.Runner.Html.App as App
-import String
-import Random.Pcg as Random
+import Set
 import Time exposing (Time)
+import Task
 import Tuple
-
-
-type alias TestId =
-    Int
-
-
-type alias Model =
-    { available : Dict TestId (() -> ( List String, List Expectation ))
-    , running : Set TestId
-    , queue : List TestId
-    , completed : List ( List String, List Expectation )
-    , startTime : Time
-    , finishTime : Maybe Time
-    }
+import Html exposing (Html)
+import Random.Pcg as Random
+import Test exposing (Test)
+import Test.Runner exposing (Runner(..))
+import Test.Runner.Html.View as View
+import Expect exposing (Expectation)
 
 
 type Msg
-    = Dispatch
+    = Init Time
+    | Dispatch
     | Finish Time
+
+
+type Model
+    = Uninitialized (Maybe Random.Seed) Int Test
+    | Initialized View.Model
 
 
 {-| A program which will run tests and report their results.
 -}
 type alias TestProgram =
-    Program Never (App.Model Msg Model) (App.Msg Msg)
+    Program Never Model Msg
 
 
-viewLabels : List String -> List (Html a)
-viewLabels =
-    formatLabels (withColorChar '↓' "darkgray")
-        (withColorChar '✗' "hsla(3, 100%, 40%, 1.0)")
+type alias SubUpdate msg model =
+    msg -> model -> ( model, Cmd msg )
 
 
-givenAttributes : List (Html.Attribute a)
-givenAttributes =
-    [ width 80
-    , style
-        [ ( "margin-bottom", "24px" )
-        , ( "color", "darkgray" )
-        , ( "font-size", "inherit" )
-        , ( "font-family", "inherit" )
-        ]
-    ]
-
-
-messageAttributes : List (Html.Attribute a)
-messageAttributes =
-    [ width 80
-    , style
-        [ ( "margin-left", "32px" )
-        , ( "margin-bottom", "40px" )
-        , ( "font-size", "inherit" )
-        , ( "font-family", "inherit" )
-        ]
-    ]
-
-
-withoutEmptyStrings : List String -> List String
-withoutEmptyStrings =
-    List.filter ((/=) "")
-
-
-withColorChar : Char -> String -> String -> Html a
-withColorChar char textColor str =
-    div [ style [ ( "color", textColor ) ] ]
-        [ text (String.cons char (String.cons ' ' str)) ]
-
-
-view : Model -> Html Msg
-view model =
-    let
-        summary =
-            case model.finishTime of
-                Just finishTime ->
-                    let
-                        ( headlineColor, headlineText ) =
-                            if List.isEmpty failures then
-                                ( "darkgreen", "Test Run Passed" )
-                            else
-                                ( "hsla(3, 100%, 40%, 1.0)", "Test Run Failed" )
-
-                        thStyle =
-                            [ ( "text-align", "left" ), ( "padding-right", "10px" ) ]
-
-                        duration =
-                            formatDuration (finishTime - model.startTime)
-                    in
-                        div []
-                            [ h2 [ style [ ( "color", headlineColor ) ] ] [ text headlineText ]
-                            , table []
-                                [ tbody []
-                                    [ tr []
-                                        [ th [ style thStyle ]
-                                            [ text "Duration" ]
-                                        , td []
-                                            [ text duration ]
-                                        ]
-                                    , tr []
-                                        [ th [ style thStyle ]
-                                            [ text "Passed" ]
-                                        , td []
-                                            [ text (toString (completedCount - List.length failures)) ]
-                                        ]
-                                    , tr []
-                                        [ th [ style thStyle ]
-                                            [ text "Failed" ]
-                                        , td []
-                                            [ text (toString (List.length failures)) ]
-                                        ]
-                                    ]
-                                ]
-                            ]
-
-                Nothing ->
-                    div []
-                        [ h2 [] [ text "Running Tests..." ]
-                        , div [] [ text (toString completedCount ++ " completed") ]
-                        , div [] [ text (toString remainingCount ++ " remaining") ]
-                        ]
-
-        completedCount =
-            List.length model.completed
-
-        remainingCount =
-            List.length (Dict.keys model.available)
-
-        failures : List ( List String, List Expectation )
-        failures =
-            List.filter (Tuple.second >> List.any ((/=) Expect.pass)) model.completed
-    in
-        div [ style [ ( "width", "960px" ), ( "margin", "auto 40px" ), ( "font-family", "verdana, sans-serif" ) ] ]
-            [ summary
-            , ol [ class "results", resultsStyle ] (List.map viewFailures failures)
-            ]
-
-
-resultsStyle : Html.Attribute a
-resultsStyle =
-    style [ ( "font-size", "14px" ), ( "line-height", "1.3" ), ( "font-family", "Menlo, Consolas, \"Fira Mono\", \"DejaVu Sans Mono\", \"Liberation Monospace\", \"Liberation Mono\", Monaco, \"Lucida Console\", \"Courier New\", monospace" ) ]
-
-
-viewFailures : ( List String, List Expectation ) -> Html a
-viewFailures ( labels, failures ) =
-    li [ style [ ( "margin", "40px 0" ) ] ]
-        (viewLabels labels ++ (List.filterMap viewFailure failures))
-
-
-viewFailure : Expectation -> Maybe (Html a)
-viewFailure expectation =
-    case Expect.getFailure expectation of
-        Just { given, message } ->
-            let
-                givenElem =
-                    if String.isEmpty given then
-                        text ""
-                    else
-                        pre givenAttributes [ text ("Given " ++ given) ]
-            in
-                div []
-                    [ givenElem
-                    , pre messageAttributes [ text message ]
-                    ]
-                    |> Just
-
-        Nothing ->
-            Nothing
+type alias RunnerOptions =
+    { seed : Maybe Random.Seed
+    , runs : Maybe Int
+    }
 
 
 warn : String -> a -> a
-warn str result =
-    let
-        _ =
-            Debug.log str
-    in
-        result
-
-
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case msg of
-        Finish time ->
-            case model.finishTime of
-                Nothing ->
-                    ( { model | finishTime = Just time }, Cmd.none )
-
-                Just _ ->
-                    ( model, Cmd.none )
-                        |> warn "Attempted to Finish more than once!"
-
-        Dispatch ->
-            case model.queue of
-                [] ->
-                    ( model, Task.perform Finish Time.now )
-
-                testId :: newQueue ->
-                    case Dict.get testId model.available of
-                        Nothing ->
-                            ( model, Cmd.none )
-                                |> warn ("Could not find testId " ++ toString testId)
-
-                        Just run ->
-                            let
-                                completed =
-                                    model.completed ++ [ run () ]
-
-                                available =
-                                    Dict.remove testId model.available
-
-                                newModel =
-                                    { model
-                                        | completed = completed
-                                        , available = available
-                                        , queue = newQueue
-                                    }
-
-                                {- Dispatch as a Cmd so as to yield to the UI
-                                   thread in between test executions.
-                                -}
-                            in
-                                ( newModel, dispatch )
+warn =
+    Debug.log
 
 
 dispatch : Cmd Msg
@@ -250,10 +60,10 @@ dispatch =
         |> Task.perform identity
 
 
-init : Time -> List (() -> ( List String, List Expectation )) -> ( Model, Cmd Msg )
-init startTime thunks =
+initialize : Time -> List (() -> ( List String, List Expectation )) -> ( Model, Cmd Msg )
+initialize startTime thunks =
     let
-        indexedThunks : List ( TestId, () -> ( List String, List Expectation ) )
+        indexedThunks : List ( Int, () -> ( List String, List Expectation ) )
         indexedThunks =
             List.indexedMap (,) thunks
 
@@ -266,12 +76,7 @@ init startTime thunks =
             , finishTime = Nothing
             }
     in
-        ( model, dispatch )
-
-
-formatDuration : Time -> String
-formatDuration time =
-    toString time ++ " ms"
+        ( Initialized model, dispatch )
 
 
 {-| Run the test and report the results.
@@ -288,13 +93,123 @@ run =
 `runs` or `seed`, it will fall back on the options used in [`run`](#run).
 -}
 runWithOptions : Maybe Int -> Maybe Random.Seed -> Test -> TestProgram
-runWithOptions runs seed =
-    App.run
-        { runs = runs
-        , seed = seed
-        }
-        { init = init
-        , update = update
-        , view = view
-        , subscriptions = \_ -> Sub.none
-        }
+runWithOptions maybeRuns seed test =
+    let
+        runs =
+            Maybe.withDefault defaultRunCount maybeRuns
+
+        getTime =
+            Task.perform Init Time.now
+    in
+        Html.program
+            { init = ( Uninitialized seed runs test, getTime )
+            , update = update
+            , view = view
+            , subscriptions = \_ -> Sub.none
+            }
+
+
+timeToSeed : Time -> Random.Seed
+timeToSeed time =
+    (0xFFFFFFFF * time)
+        |> floor
+        |> Random.initialSeed
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case ( msg, model ) of
+        ( Init time, Uninitialized seed runs test ) ->
+            let
+                finalSeed =
+                    case seed of
+                        Just realSeed ->
+                            realSeed
+
+                        Nothing ->
+                            timeToSeed time
+            in
+                test
+                    |> Test.Runner.fromTest runs finalSeed
+                    |> toThunks
+                    |> initialize time
+
+        ( Finish time, Initialized viewModel ) ->
+            case viewModel.finishTime of
+                Nothing ->
+                    ( Initialized { viewModel | finishTime = Just time }, Cmd.none )
+
+                Just _ ->
+                    ( Initialized viewModel, Cmd.none )
+                        |> warn "Attempted to Finish more than once!"
+
+        ( Dispatch, Initialized viewModel ) ->
+            case viewModel.queue of
+                [] ->
+                    ( Initialized viewModel, Task.perform Finish Time.now )
+
+                testId :: newQueue ->
+                    case Dict.get testId viewModel.available of
+                        Nothing ->
+                            ( Initialized viewModel, Cmd.none )
+                                |> warn ("Could not find testId " ++ toString testId)
+
+                        Just run ->
+                            let
+                                completed =
+                                    viewModel.completed ++ [ run () ]
+
+                                available =
+                                    Dict.remove testId viewModel.available
+
+                                newModel =
+                                    { viewModel
+                                        | completed = completed
+                                        , available = available
+                                        , queue = newQueue
+                                    }
+
+                                {- Dispatch as a Cmd so as to yield to the UI
+                                   thread in between test executions.
+                                -}
+                            in
+                                ( Initialized newModel, dispatch )
+
+        ( Init _, Initialized _ ) ->
+            Debug.crash "Attempted to init twice!"
+
+        ( _, Uninitialized _ _ _ ) ->
+            Debug.crash "Attempted to run a Msg pre-Init!"
+
+
+view : Model -> Html Msg
+view model =
+    case model of
+        Uninitialized _ _ _ ->
+            View.uninitialized
+
+        Initialized viewModel ->
+            View.initialized viewModel
+
+
+toThunks : Runner -> List (() -> ( List String, List Expectation ))
+toThunks =
+    toThunksHelp []
+
+
+toThunksHelp : List String -> Runner -> List (() -> ( List String, List Expectation ))
+toThunksHelp labels runner =
+    case runner of
+        Runnable runnable ->
+            [ \() -> ( labels, Test.Runner.run runnable ) ]
+
+        Labeled label subRunner ->
+            toThunksHelp (label :: labels) subRunner
+
+        Batch runners ->
+            List.concatMap (toThunksHelp labels) runners
+
+
+defaultRunCount : Int
+defaultRunCount =
+    100
