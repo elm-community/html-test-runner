@@ -70,9 +70,14 @@ run maybeRuns seed test =
 
         getTime =
             Task.perform Start Time.now
+
+        init =
+            ( NotStarted seed runs test
+            , getTime
+            )
     in
         Html.program
-            { init = ( NotStarted seed runs test, getTime )
+            { init = init
             , update = update
             , view = view
             , subscriptions = \_ -> Sub.none
@@ -80,10 +85,8 @@ run maybeRuns seed test =
 
 
 timeToSeed : Time -> Random.Seed
-timeToSeed time =
-    (0xFFFFFFFF * time)
-        |> floor
-        |> Random.initialSeed
+timeToSeed =
+    Random.initialSeed << floor
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
