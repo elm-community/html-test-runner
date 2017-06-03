@@ -13,6 +13,8 @@ import Html
 import Random.Pcg as Random
 import Test exposing (Test)
 import Test.Runner.Html.App as App
+import Test.Runner.Html.View as View
+import View as View
 
 
 {-| A program which will run tests and report their results.
@@ -35,5 +37,10 @@ run =
 `runs` or `seed`, it will fall back on the options used in [`run`](#run).
 -}
 runWithOptions : Maybe Int -> Maybe Random.Seed -> Test -> TestProgram
-runWithOptions =
-    App.run
+runWithOptions runs seed test =
+    Html.program
+        { init = App.init runs seed test
+        , update = App.update
+        , view = App.present >> View.view
+        , subscriptions = \_ -> Sub.none
+        }

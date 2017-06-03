@@ -2,7 +2,9 @@ module Test.Runner.Html.App
     exposing
         ( Msg
         , Model
-        , run
+        , init
+        , update
+        , present
         )
 
 import Dict exposing (Dict)
@@ -10,7 +12,6 @@ import Set
 import Time exposing (Time)
 import Task
 import Tuple
-import Html exposing (Html)
 import Random.Pcg as Random
 import Test exposing (Test)
 import Test.Runner exposing (Runner(..))
@@ -50,7 +51,7 @@ start startTime thunks =
         indexedThunks =
             List.indexedMap (,) thunks
 
-        model =
+        viewModel =
             { available = Dict.fromList indexedThunks
             , running = Set.empty
             , queue = List.map Tuple.first indexedThunks
@@ -59,29 +60,21 @@ start startTime thunks =
             , finishTime = Nothing
             }
     in
-        ( Started model, dispatch )
+        ( Started viewModel, dispatch )
 
 
-run : Maybe Int -> Maybe Random.Seed -> Test -> Program Never Model Msg
-run maybeRuns seed test =
+init : Maybe Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )
+init maybeRuns seed test =
     let
         runs =
             Maybe.withDefault defaultRunCount maybeRuns
 
         getTime =
             Task.perform Start Time.now
-
-        init =
-            ( NotStarted seed runs test
-            , getTime
-            )
     in
-        Html.program
-            { init = init
-            , update = update
-            , view = view
-            , subscriptions = \_ -> Sub.none
-            }
+        ( NotStarted seed runs test
+        , getTime
+        )
 
 
 timeToSeed : Time -> Random.Seed
@@ -151,14 +144,14 @@ update msg model =
             Debug.crash "Attempted to run a Msg pre-Start!"
 
 
-view : Model -> Html Msg
-view model =
+present : Model -> Maybe View.Model
+present model =
     case model of
         NotStarted _ _ _ ->
-            View.notStarted
+            Nothing
 
         Started viewModel ->
-            View.started viewModel
+            Just viewModel
 
 
 toThunks : List String -> Runner -> List (() -> ( List String, List Expectation ))
