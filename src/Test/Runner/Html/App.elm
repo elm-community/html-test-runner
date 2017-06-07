@@ -1,6 +1,6 @@
 module Test.Runner.Html.App
     exposing
-        ( Msg
+        ( Msg(..)
         , Model
         , init
         , update
@@ -44,7 +44,10 @@ dispatch =
         |> Task.perform identity
 
 
-start : Time -> List (() -> ( List String, List Expectation )) -> ( Model, Cmd Msg )
+start :
+    Time
+    -> List (() -> ( List String, List Expectation ))
+    -> ( Model, Cmd Msg )
 start startTime thunks =
     let
         indexedThunks : List ( Int, () -> ( List String, List Expectation ) )
@@ -154,7 +157,10 @@ present model =
             Just viewModel
 
 
-toThunks : List String -> Runner -> List (() -> ( List String, List Expectation ))
+toThunks :
+    List String
+    -> Runner
+    -> List (() -> ( List String, List Expectation ))
 toThunks labels runner =
     case runner of
         Runnable runnable ->
