@@ -85,7 +85,10 @@ viewFailGroup ( labels, expectations ) =
     let
         inContext { given, message } =
             div []
-                [ pre givenAttributes [ text ("Given " ++ given) ]
+                [ if String.isEmpty given then
+                    text ""
+                  else
+                    pre givenAttributes [ text ("Given " ++ given) ]
                 , pre messageAttributes [ text message ]
                 ]
     in

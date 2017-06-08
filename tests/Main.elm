@@ -17,19 +17,12 @@ noTests =
     describe "nothing" []
 
 
-twoTests : { first : Test, second : Test, all : Test }
+twoTests : Test
 twoTests =
-    let
-        first =
-            test "one" (\_ -> Expect.pass)
-
-        second =
-            test "two" (\_ -> Expect.fail "message")
-    in
-        { first = first
-        , second = second
-        , all = describe "both" [ first, second ]
-        }
+    describe "both"
+        [ test "one" (\_ -> Expect.pass)
+        , test "two" (\_ -> Expect.fail "message")
+        ]
 
 
 
@@ -71,7 +64,7 @@ suite =
                         )
         , test "increments test counter" <|
             \_ ->
-                App.init Nothing Nothing twoTests.all
+                App.init Nothing Nothing twoTests
                     |- App.update (App.Start 5)
                     |- App.update App.Dispatch
                     |- App.present
@@ -80,6 +73,24 @@ suite =
                             { completed = 1
                             , remaining = 1
                             , failures = []
+                            }
+                        )
+        , test "captures failures" <|
+            \_ ->
+                App.init Nothing Nothing twoTests
+                    |- App.update (App.Start 5)
+                    |- App.update App.Dispatch
+                    |- App.update App.Dispatch
+                    |- App.present
+                    |> Expect.equal
+                        (View.Running
+                            { completed = 2
+                            , remaining = 0
+                            , failures =
+                                [ ( [ "two", "both" ]
+                                  , [ { given = "", message = "message" } ]
+                                  )
+                                ]
                             }
                         )
         ]
