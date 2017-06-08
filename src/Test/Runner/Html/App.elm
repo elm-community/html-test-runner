@@ -76,9 +76,11 @@ init maybeRuns seed test =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
-        ( Start time, NotStarted seed runs test ) ->
-            Maybe.withDefault (Random.initialSeed <| floor time) seed
-                |> start runs time test
+        ( Start time, NotStarted Nothing runs test ) ->
+            start runs time test (Random.initialSeed <| floor time)
+
+        ( Start time, NotStarted (Just seed) runs test ) ->
+            start runs time test seed
 
         ( Finish time, Running _ state ) ->
             ( Finished time state, Cmd.none )
