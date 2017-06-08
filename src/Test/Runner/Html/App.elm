@@ -26,13 +26,17 @@ type Msg
 
 type Model
     = NotStarted (Maybe Random.Seed) Int Test
-    | Started
-        { available : Dict Int (() -> ( List String, List Expectation ))
-        , queue : List Int
-        , completed : List ( List String, List Expectation )
-        , startTime : Time
-        , finishTime : Maybe Time
-        }
+    | Running State
+    | Finished Time State
+
+
+type alias State =
+    { available : Dict Int (() -> ( List String, List Expectation ))
+    , queue : List Int
+    , completed : List ( List String, List Expectation )
+    , startTime : Time
+    , finishTime : Maybe Time
+    }
 
 
 warn : String -> a -> a
@@ -66,7 +70,7 @@ start startTime thunks =
             , finishTime = Nothing
             }
     in
-        ( Started state, dispatch )
+        ( Running state, dispatch )
 
 
 init : Maybe Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )
@@ -106,24 +110,18 @@ update msg model =
                     |> toThunks []
                     |> start time
 
-        ( Finish time, Started state ) ->
-            case state.finishTime of
-                Nothing ->
-                    ( Started { state | finishTime = Just time }, Cmd.none )
+        ( Finish time, Running state ) ->
+            ( Finished time state, Cmd.none )
 
-                Just _ ->
-                    ( Started state, Cmd.none )
-                        |> warn "Attempted to Finish more than once!"
-
-        ( Dispatch, Started state ) ->
+        ( Dispatch, Running state ) ->
             case state.queue of
                 [] ->
-                    ( Started state, Task.perform Finish Time.now )
+                    ( Running state, Task.perform Finish Time.now )
 
                 testId :: newQueue ->
                     case Dict.get testId state.available of
                         Nothing ->
-                            ( Started state, Cmd.none )
+                            ( Running state, Cmd.none )
                                 |> warn ("Could not find testId " ++ toString testId)
 
                         Just run ->
@@ -141,13 +139,19 @@ update msg model =
                                         , queue = newQueue
                                     }
                             in
-                                ( Started newModel, dispatch )
+                                ( Running newModel, dispatch )
 
-        ( Start _, Started _ ) ->
+        ( Start _, _ ) ->
             Debug.crash "Attempted to start twice!"
 
         ( _, NotStarted _ _ _ ) ->
             Debug.crash "Attempted to run a Msg pre-Start!"
+
+        ( Finish _, Finished _ _ ) ->
+            Debug.crash "Attempted to Finish more than once!"
+
+        ( Dispatch, Finished _ _ ) ->
+            Debug.crash "Attempted to run tests after program finished!"
 
 
 present : Model -> View.Model
@@ -156,25 +160,23 @@ present model =
         NotStarted _ _ _ ->
             View.NotStarted
 
-        Started state ->
+        Running state ->
+            View.Running
+                { completed = List.length state.completed
+                , remaining = Dict.size state.available
+                , failures = formatFailures state.completed
+                }
+
+        Finished finishTime state ->
             let
                 failures =
                     formatFailures state.completed
             in
-                case state.finishTime of
-                    Just finishTime ->
-                        View.Finished
-                            { duration = finishTime - state.startTime
-                            , passed = List.length state.completed - List.length failures
-                            , failures = failures
-                            }
-
-                    Nothing ->
-                        View.Running
-                            { completed = List.length state.completed
-                            , remaining = Dict.size state.available
-                            , failures = failures
-                            }
+                View.Finished
+                    { duration = finishTime - state.startTime
+                    , passed = List.length state.completed - List.length failures
+                    , failures = failures
+                    }
 
 
 formatFailures : List ( List String, List Expectation ) -> List View.FailGroup
