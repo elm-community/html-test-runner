@@ -36,45 +36,39 @@ suite =
             \_ ->
                 App.init Nothing Nothing noTests
                     |- App.present
-                    |> Expect.equal View.NotStarted
+                    |== View.NotStarted
         , test "shows running on Start" <|
             \_ ->
                 App.init Nothing Nothing noTests
                     |- App.update (App.Start 5)
                     |- App.present
-                    |> Expect.equal
-                        (View.Running
+                    |== View.Running
                             { completed = 0
                             , remaining = 0
                             , failures = []
                             }
-                        )
         , test "finishes when none remaining Finish" <|
             \_ ->
                 App.init Nothing Nothing noTests
                     |- App.update (App.Start 5)
                     |- App.update (App.Finish 10)
                     |- App.present
-                    |> Expect.equal
-                        (View.Finished
+                    |== View.Finished
                             { duration = 5
                             , passed = 0
                             , failures = []
                             }
-                        )
         , test "increments test counter" <|
             \_ ->
                 App.init Nothing Nothing twoTests
                     |- App.update (App.Start 5)
                     |- App.update App.Dispatch
                     |- App.present
-                    |> Expect.equal
-                        (View.Running
+                    |== View.Running
                             { completed = 1
                             , remaining = 1
                             , failures = []
                             }
-                        )
         , test "captures failures" <|
             \_ ->
                 App.init Nothing Nothing twoTests
@@ -82,8 +76,7 @@ suite =
                     |- App.update App.Dispatch
                     |- App.update App.Dispatch
                     |- App.present
-                    |> Expect.equal
-                        (View.Running
+                    |== View.Running
                             { completed = 2
                             , remaining = 0
                             , failures =
@@ -92,7 +85,6 @@ suite =
                                   )
                                 ]
                             }
-                        )
         ]
 
 
@@ -107,3 +99,11 @@ main =
 (|-) ( a, _ ) f =
     f a
 infixl 0 |-
+
+
+{-| Infix convenience for Expect.equal.
+-}
+(|==) : a -> a -> Expect.Expectation
+(|==) =
+    Expect.equal
+infixl 0 |==
