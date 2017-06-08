@@ -25,8 +25,14 @@ type Msg
 
 type Model
     = NotStarted (Maybe Random.Seed) Int Test
-    | Running (List (() -> ( List String, List Expectation ))) State
+    | Running (List Runnable) State
     | Finished Time State
+
+
+type alias Runnable =
+    { run : () -> List Expectation
+    , labels : List String
+    }
 
 
 type alias State =
@@ -43,6 +49,11 @@ dispatch : Cmd Msg
 dispatch =
     Task.succeed Dispatch
         |> Task.perform identity
+
+
+now : (Time -> a) -> Cmd a
+now msg =
+    Task.perform msg Time.now
 
 
 start : Int -> Time -> Test -> Random.Seed -> ( Model, Cmd Msg )
@@ -62,22 +73,29 @@ start runs time test seed =
         ( Running thunks state, dispatch )
 
 
+run : Runnable -> State -> State
+run runnable state =
+    { state
+        | completed = state.completed ++ [ ( runnable.labels, runnable.run () ) ]
+    }
+
+
 init : Maybe Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )
-init maybeRuns seed test =
+init maybeRuns maybeSeed test =
     let
         runs =
             Maybe.withDefault defaultRunCount maybeRuns
     in
-        ( NotStarted seed runs test
-        , Task.perform Start Time.now
-        )
+        ( NotStarted maybeSeed runs test, now Start )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
         ( Start time, NotStarted Nothing runs test ) ->
-            start runs time test (Random.initialSeed <| floor time)
+            floor time
+                |> Random.initialSeed
+                |> start runs time test
 
         ( Start time, NotStarted (Just seed) runs test ) ->
             start runs time test seed
@@ -86,13 +104,10 @@ update msg model =
             ( Finished time state, Cmd.none )
 
         ( Dispatch, Running [] state ) ->
-            ( Running [] state, Task.perform Finish Time.now )
+            ( Running [] state, now Finish )
 
-        ( Dispatch, Running (run :: newQueue) state ) ->
-            ( Running newQueue
-                { state | completed = state.completed ++ [ run () ] }
-            , dispatch
-            )
+        ( Dispatch, Running (runner :: queue) state ) ->
+            ( Running queue (run runner state), dispatch )
 
         ( Start _, _ ) ->
             Debug.crash "Attempted to start twice!"
@@ -147,12 +162,11 @@ formatFailures =
 toThunks :
     List String
     -> Runner
-    -> List (() -> ( List String, List Expectation ))
+    -> List Runnable
 toThunks labels runner =
     case runner of
         Runnable runnable ->
-            [ \() -> ( labels, Test.Runner.run runnable )
-            ]
+            [ { run = \() -> Test.Runner.run runnable, labels = labels } ]
 
         Labeled label subRunner ->
             toThunks (label :: labels) subRunner
