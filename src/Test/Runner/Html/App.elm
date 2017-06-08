@@ -164,22 +164,16 @@ present model =
                 case state.finishTime of
                     Just finishTime ->
                         View.Finished
-                            { duration =
-                                finishTime - state.startTime
-                            , passed =
-                                List.length state.completed - List.length failures
-                            , failures =
-                                failures
+                            { duration = finishTime - state.startTime
+                            , passed = List.length state.completed - List.length failures
+                            , failures = failures
                             }
 
                     Nothing ->
                         View.Running
-                            { completed =
-                                List.length state.completed
-                            , remaining =
-                                List.length state.queue + Dict.size state.available
-                            , failures =
-                                failures
+                            { completed = List.length state.completed
+                            , remaining = Dict.size state.available
+                            , failures = failures
                             }
 
 

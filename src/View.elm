@@ -53,7 +53,7 @@ finished duration passed failures =
                             [ th [ style thStyle ]
                                 [ text "Duration" ]
                             , td []
-                                [ text (toString duration) ]
+                                [ text (formatDuration duration) ]
                             ]
                         , tr []
                             [ th [ style thStyle ]

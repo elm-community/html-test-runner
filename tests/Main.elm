@@ -17,6 +17,21 @@ noTests =
     describe "nothing" []
 
 
+twoTests : { first : Test, second : Test, all : Test }
+twoTests =
+    let
+        first =
+            test "one" (\_ -> Expect.pass)
+
+        second =
+            test "two" (\_ -> Expect.fail "message")
+    in
+        { first = first
+        , second = second
+        , all = describe "both" [ first, second ]
+        }
+
+
 
 -- REAL TESTS
 
@@ -51,6 +66,19 @@ suite =
                         (View.Finished
                             { duration = 5
                             , passed = 0
+                            , failures = []
+                            }
+                        )
+        , test "increments test counter" <|
+            \_ ->
+                App.init Nothing Nothing twoTests.all
+                    |- App.update (App.Start 5)
+                    |- App.update App.Dispatch
+                    |- App.present
+                    |> Expect.equal
+                        (View.Running
+                            { completed = 1
+                            , remaining = 1
                             , failures = []
                             }
                         )
