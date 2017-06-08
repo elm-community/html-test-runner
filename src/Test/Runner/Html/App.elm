@@ -7,7 +7,6 @@ module Test.Runner.Html.App
         , present
         )
 
-import Dict exposing (Dict)
 import Time exposing (Time)
 import Task
 import Tuple
@@ -31,17 +30,11 @@ type Model
 
 
 type alias State =
-    { available : Dict Int (() -> ( List String, List Expectation ))
-    , queue : List Int
+    { queue : List (() -> ( List String, List Expectation ))
     , completed : List ( List String, List Expectation )
     , startTime : Time
     , finishTime : Maybe Time
     }
-
-
-warn : String -> a -> a
-warn =
-    Debug.log
 
 
 {-| Dispatch as a Cmd so as to yield to the UI
@@ -53,20 +46,18 @@ dispatch =
         |> Task.perform identity
 
 
-start :
-    Time
-    -> List (() -> ( List String, List Expectation ))
-    -> ( Model, Cmd Msg )
-start startTime thunks =
+start : Int -> Time -> Test -> Random.Seed -> ( Model, Cmd Msg )
+start runs time test seed =
     let
-        indexedThunks =
-            List.indexedMap (,) thunks
+        thunks =
+            test
+                |> Test.Runner.fromTest runs seed
+                |> toThunks []
 
         state =
-            { available = Dict.fromList indexedThunks
-            , queue = List.map Tuple.first indexedThunks
+            { queue = thunks
             , completed = []
-            , startTime = startTime
+            , startTime = time
             , finishTime = Nothing
             }
     in
@@ -87,28 +78,12 @@ init maybeRuns seed test =
         )
 
 
-timeToSeed : Time -> Random.Seed
-timeToSeed =
-    Random.initialSeed << floor
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
         ( Start time, NotStarted seed runs test ) ->
-            let
-                finalSeed =
-                    case seed of
-                        Just realSeed ->
-                            realSeed
-
-                        Nothing ->
-                            timeToSeed time
-            in
-                test
-                    |> Test.Runner.fromTest runs finalSeed
-                    |> toThunks []
-                    |> start time
+            Maybe.withDefault (Random.initialSeed <| floor time) seed
+                |> start runs time test
 
         ( Finish time, Running state ) ->
             ( Finished time state, Cmd.none )
@@ -118,28 +93,14 @@ update msg model =
                 [] ->
                     ( Running state, Task.perform Finish Time.now )
 
-                testId :: newQueue ->
-                    case Dict.get testId state.available of
-                        Nothing ->
-                            ( Running state, Cmd.none )
-                                |> warn ("Could not find testId " ++ toString testId)
-
-                        Just run ->
-                            let
-                                completed =
-                                    state.completed ++ [ run () ]
-
-                                available =
-                                    Dict.remove testId state.available
-
-                                newModel =
-                                    { state
-                                        | completed = completed
-                                        , available = available
-                                        , queue = newQueue
-                                    }
-                            in
-                                ( Running newModel, dispatch )
+                run :: newQueue ->
+                    ( Running
+                        { state
+                            | queue = newQueue
+                            , completed = state.completed ++ [ run () ]
+                        }
+                    , dispatch
+                    )
 
         ( Start _, _ ) ->
             Debug.crash "Attempted to start twice!"
@@ -163,7 +124,7 @@ present model =
         Running state ->
             View.Running
                 { completed = List.length state.completed
-                , remaining = Dict.size state.available
+                , remaining = List.length state.queue
                 , failures = formatFailures state.completed
                 }
 
