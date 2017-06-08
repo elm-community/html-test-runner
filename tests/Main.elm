@@ -29,68 +29,68 @@ twoTests =
 -- REAL TESTS
 
 
-suite : Test
+suite : List Test
 suite =
-    describe "Test.Runner.Html.App"
-        [ test "shows nothing on init" <|
-            \_ ->
-                App.init Nothing Nothing noTests
-                    |- App.present
-                    |== View.NotStarted
-        , test "shows running on Start" <|
-            \_ ->
-                App.init Nothing Nothing noTests
-                    |- App.update (App.Start 5)
-                    |- App.present
-                    |== View.Running
-                            { completed = 0
-                            , remaining = 0
-                            , failures = []
-                            }
-        , test "finishes when none remaining Finish" <|
-            \_ ->
-                App.init Nothing Nothing noTests
-                    |- App.update (App.Start 5)
-                    |- App.update (App.Finish 10)
-                    |- App.present
-                    |== View.Finished
-                            { duration = 5
-                            , passed = 0
-                            , failures = []
-                            }
-        , test "increments test counter" <|
-            \_ ->
-                App.init Nothing Nothing twoTests
-                    |- App.update (App.Start 5)
-                    |- App.update App.Dispatch
-                    |- App.present
-                    |== View.Running
-                            { completed = 1
-                            , remaining = 1
-                            , failures = []
-                            }
-        , test "captures failures" <|
-            \_ ->
-                App.init Nothing Nothing twoTests
-                    |- App.update (App.Start 5)
-                    |- App.update App.Dispatch
-                    |- App.update App.Dispatch
-                    |- App.present
-                    |== View.Running
-                            { completed = 2
-                            , remaining = 0
-                            , failures =
-                                [ ( [ "two", "both" ]
-                                  , [ { given = "", message = "message" } ]
-                                  )
-                                ]
-                            }
-        ]
+    [ test "shows nothing on init" <|
+        \_ ->
+            App.init Nothing Nothing noTests
+                |- App.present
+                |== View.NotStarted
+    , test "shows running on Start" <|
+        \_ ->
+            App.init Nothing Nothing noTests
+                |- App.update (App.Start 5)
+                |- App.present
+                |== View.Running
+                        { completed = 0
+                        , remaining = 0
+                        , failures = []
+                        }
+    , test "finishes when none remaining Finish" <|
+        \_ ->
+            App.init Nothing Nothing noTests
+                |- App.update (App.Start 5)
+                |- App.update (App.Finish 10)
+                |- App.present
+                |== View.Finished
+                        { duration = 5
+                        , passed = 0
+                        , failures = []
+                        }
+    , test "increments test counter" <|
+        \_ ->
+            App.init Nothing Nothing twoTests
+                |- App.update (App.Start 5)
+                |- App.update App.Dispatch
+                |- App.present
+                |== View.Running
+                        { completed = 1
+                        , remaining = 1
+                        , failures = []
+                        }
+    , test "captures failures" <|
+        \_ ->
+            App.init Nothing Nothing twoTests
+                |- App.update (App.Start 5)
+                |- App.update App.Dispatch
+                |- App.update App.Dispatch
+                |- App.present
+                |== View.Running
+                        { completed = 2
+                        , remaining = 0
+                        , failures =
+                            [ ( [ "two", "both" ]
+                              , [ { given = "", message = "message" } ]
+                              )
+                            ]
+                        }
+    ]
 
 
 main : Test.Runner.Html.TestProgram
 main =
-    Test.Runner.Html.run suite
+    describe "Test.Runner.Html.App" suite
+        |> Test.Runner.Html.run
 
 
 {-| Extract first tuple element then map. Useful for piping update functions!
