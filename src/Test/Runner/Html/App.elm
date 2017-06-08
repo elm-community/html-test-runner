@@ -8,7 +8,6 @@ module Test.Runner.Html.App
         )
 
 import Dict exposing (Dict)
-import Set
 import Time exposing (Time)
 import Task
 import Tuple
@@ -16,7 +15,7 @@ import Random.Pcg as Random
 import Test exposing (Test)
 import Test.Runner exposing (Runner(..))
 import Test.Runner.Html.View as View
-import Expect exposing (Expectation)
+import Expect exposing (Expectation, getFailure)
 
 
 type Msg
@@ -27,7 +26,13 @@ type Msg
 
 type Model
     = NotStarted (Maybe Random.Seed) Int Test
-    | Started View.Model
+    | Started
+        { available : Dict Int (() -> ( List String, List Expectation ))
+        , queue : List Int
+        , completed : List ( List String, List Expectation )
+        , startTime : Time
+        , finishTime : Maybe Time
+        }
 
 
 warn : String -> a -> a
@@ -50,20 +55,18 @@ start :
     -> ( Model, Cmd Msg )
 start startTime thunks =
     let
-        indexedThunks : List ( Int, () -> ( List String, List Expectation ) )
         indexedThunks =
             List.indexedMap (,) thunks
 
-        viewModel =
+        state =
             { available = Dict.fromList indexedThunks
-            , running = Set.empty
             , queue = List.map Tuple.first indexedThunks
             , completed = []
             , startTime = startTime
             , finishTime = Nothing
             }
     in
-        ( Started viewModel, dispatch )
+        ( Started state, dispatch )
 
 
 init : Maybe Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )
@@ -103,36 +106,36 @@ update msg model =
                     |> toThunks []
                     |> start time
 
-        ( Finish time, Started viewModel ) ->
-            case viewModel.finishTime of
+        ( Finish time, Started state ) ->
+            case state.finishTime of
                 Nothing ->
-                    ( Started { viewModel | finishTime = Just time }, Cmd.none )
+                    ( Started { state | finishTime = Just time }, Cmd.none )
 
                 Just _ ->
-                    ( Started viewModel, Cmd.none )
+                    ( Started state, Cmd.none )
                         |> warn "Attempted to Finish more than once!"
 
-        ( Dispatch, Started viewModel ) ->
-            case viewModel.queue of
+        ( Dispatch, Started state ) ->
+            case state.queue of
                 [] ->
-                    ( Started viewModel, Task.perform Finish Time.now )
+                    ( Started state, Task.perform Finish Time.now )
 
                 testId :: newQueue ->
-                    case Dict.get testId viewModel.available of
+                    case Dict.get testId state.available of
                         Nothing ->
-                            ( Started viewModel, Cmd.none )
+                            ( Started state, Cmd.none )
                                 |> warn ("Could not find testId " ++ toString testId)
 
                         Just run ->
                             let
                                 completed =
-                                    viewModel.completed ++ [ run () ]
+                                    state.completed ++ [ run () ]
 
                                 available =
-                                    Dict.remove testId viewModel.available
+                                    Dict.remove testId state.available
 
                                 newModel =
-                                    { viewModel
+                                    { state
                                         | completed = completed
                                         , available = available
                                         , queue = newQueue
@@ -147,14 +150,49 @@ update msg model =
             Debug.crash "Attempted to run a Msg pre-Start!"
 
 
-present : Model -> Maybe View.Model
+present : Model -> View.Model
 present model =
     case model of
         NotStarted _ _ _ ->
-            Nothing
+            View.NotStarted
 
-        Started viewModel ->
-            Just viewModel
+        Started state ->
+            let
+                failures =
+                    formatFailures state.completed
+            in
+                case state.finishTime of
+                    Just finishTime ->
+                        View.Finished
+                            { duration =
+                                finishTime - state.startTime
+                            , passed =
+                                List.length state.completed - List.length failures
+                            , failures =
+                                failures
+                            }
+
+                    Nothing ->
+                        View.Running
+                            { completed =
+                                List.length state.completed
+                            , remaining =
+                                List.length state.queue + Dict.size state.available
+                            , failures =
+                                failures
+                            }
+
+
+formatFailures : List ( List String, List Expectation ) -> List View.FailGroup
+formatFailures =
+    List.filterMap <|
+        \( labels, expectations ) ->
+            case List.filterMap getFailure expectations of
+                [] ->
+                    Nothing
+
+                failures ->
+                    Just ( labels, failures )
 
 
 toThunks :

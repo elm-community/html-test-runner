@@ -28,36 +28,30 @@ suite =
             \_ ->
                 App.init Nothing Nothing noTests
                     |- App.present
-                    |> Expect.equal Nothing
+                    |> Expect.equal View.NotStarted
         , test "shows running on Start" <|
             \_ ->
                 App.init Nothing Nothing noTests
                     |- App.update (App.Start 5)
                     |- App.present
                     |> Expect.equal
-                        (Just
-                            { available = Dict.empty
-                            , running = Set.empty
-                            , queue = []
-                            , completed = []
-                            , startTime = 5
-                            , finishTime = Nothing
+                        (View.Running
+                            { completed = 0
+                            , remaining = 0
+                            , failures = []
                             }
                         )
-        , test "adds finishing time on Finish" <|
+        , test "finishes when none remaining Finish" <|
             \_ ->
                 App.init Nothing Nothing noTests
-                    |- App.update (App.Start 9)
+                    |- App.update (App.Start 5)
                     |- App.update (App.Finish 10)
                     |- App.present
                     |> Expect.equal
-                        (Just
-                            { available = Dict.empty
-                            , running = Set.empty
-                            , queue = []
-                            , completed = []
-                            , startTime = 9
-                            , finishTime = Just 10
+                        (View.Finished
+                            { duration = 5
+                            , passed = 0
+                            , failures = []
                             }
                         )
         ]
