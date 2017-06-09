@@ -17,6 +17,16 @@ noTests =
     describe "nothing" []
 
 
+oneTest : Test
+oneTest =
+    describe "a"
+        [ describe "very"
+            [ describe "nested"
+                [ test "test" (\_ -> Expect.equal 1 1) ]
+            ]
+        ]
+
+
 twoTests : Test
 twoTests =
     describe "both"
@@ -68,6 +78,19 @@ suite =
                                 ]
                               )
                             ]
+                        }
+    , test "passing one nested test" <|
+        \_ ->
+            App.init Nothing Nothing oneTest
+                |- App.update (App.Start 5)
+                |- App.update App.Dispatch
+                |- App.update App.Dispatch
+                |- App.update (App.Finish 15)
+                |- App.present
+                |== View.Finished
+                        { duration = 10
+                        , passed = 1
+                        , failures = []
                         }
     , test "increments test counter" <|
         \_ ->
