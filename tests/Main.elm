@@ -36,14 +36,14 @@ suite =
             App.init Nothing Nothing noTests
                 |- App.present
                 |== View.NotStarted
-    , test "shows running on Start" <|
+    , test "no tests has one (failure) expectation" <|
         \_ ->
             App.init Nothing Nothing noTests
                 |- App.update (App.Start 5)
                 |- App.present
                 |== View.Running
                         { completed = 0
-                        , remaining = 0
+                        , remaining = 1
                         , failures = []
                         }
     , test "finishes when none remaining Finish" <|
@@ -80,7 +80,7 @@ suite =
                         , remaining = 0
                         , failures =
                             [ ( [ "two", "both" ]
-                              , [ { given = "", message = "message" } ]
+                              , [ { given = Nothing, message = "message" } ]
                               )
                             ]
                         }
@@ -101,9 +101,9 @@ main =
 infixl 0 |-
 
 
-{-| Infix convenience for Expect.equal.
+{-| Shortcut for Expect.equal.
 -}
 (|==) : a -> a -> Expect.Expectation
-(|==) =
-    Expect.equal
+(|==) top bottom =
+    Expect.equal bottom top
 infixl 0 |==

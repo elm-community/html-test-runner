@@ -12,9 +12,9 @@ import Task
 import Tuple
 import Random.Pcg as Random
 import Test exposing (Test)
-import Test.Runner exposing (Runner(..))
+import Test.Runner as Runner
 import Test.Runner.Html.View as View
-import Expect exposing (Expectation, getFailure)
+import Expect exposing (Expectation)
 
 
 type Msg
@@ -25,14 +25,8 @@ type Msg
 
 type Model
     = NotStarted (Maybe Random.Seed) Int Test
-    | Running (List Runnable) State
+    | Running (List Runner.Runner) State
     | Finished Time State
-
-
-type alias Runnable =
-    { run : () -> List Expectation
-    , labels : List String
-    }
 
 
 type alias State =
@@ -60,9 +54,7 @@ start : Int -> Time -> Test -> Random.Seed -> ( Model, Cmd Msg )
 start runs time test seed =
     let
         thunks =
-            test
-                |> Test.Runner.fromTest runs seed
-                |> toThunks []
+            Runner.fromTest runs seed test |> extractRunners
 
         state =
             { completed = []
@@ -73,7 +65,7 @@ start runs time test seed =
         ( Running thunks state, dispatch )
 
 
-run : Runnable -> State -> State
+run : Runner.Runner -> State -> State
 run runnable state =
     { state
         | completed = state.completed ++ [ ( runnable.labels, runnable.run () ) ]
@@ -131,7 +123,7 @@ present model =
         Running queue state ->
             View.Running
                 { completed = List.length state.completed
-                , remaining = List.length queue
+                , remaining = List.length (Debug.log "queue" queue)
                 , failures = formatFailures state.completed
                 }
 
@@ -151,7 +143,7 @@ formatFailures : List ( List String, List Expectation ) -> List View.FailGroup
 formatFailures =
     List.filterMap <|
         \( labels, expectations ) ->
-            case List.filterMap getFailure expectations of
+            case List.filterMap Runner.getFailure expectations of
                 [] ->
                     Nothing
 
@@ -159,20 +151,14 @@ formatFailures =
                     Just ( labels, failures )
 
 
-toThunks :
-    List String
-    -> Runner
-    -> List Runnable
-toThunks labels runner =
-    case runner of
-        Runnable runnable ->
-            [ { run = \() -> Test.Runner.run runnable, labels = labels } ]
+extractRunners : Runner.SeededRunners -> List Runner.Runner
+extractRunners seeded =
+    case seeded of
+        Runner.Plain runners ->
+            Debug.log "runners" runners
 
-        Labeled label subRunner ->
-            toThunks (label :: labels) subRunner
-
-        Batch runners ->
-            List.concatMap (toThunks labels) runners
+        _ ->
+            Debug.crash "TODO: implement other runners"
 
 
 defaultRunCount : Int

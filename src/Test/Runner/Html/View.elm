@@ -4,7 +4,7 @@ import Time exposing (Time)
 
 
 type alias FailGroup =
-    ( List String, List { given : String, message : String } )
+    ( List String, List { given : Maybe String, message : String } )
 
 
 type Model
