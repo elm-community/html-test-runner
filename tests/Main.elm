@@ -46,16 +46,28 @@ suite =
                         , remaining = 1
                         , failures = []
                         }
-    , test "finishes when none remaining Finish" <|
+    , test "fails when describe has no tests" <|
         \_ ->
             App.init Nothing Nothing noTests
                 |- App.update (App.Start 5)
+                |- App.update App.Dispatch
                 |- App.update (App.Finish 10)
                 |- App.present
                 |== View.Finished
                         { duration = 5
                         , passed = 0
-                        , failures = []
+                        , failures =
+                            [ ( []
+                              , [ { given =
+                                        Nothing
+                                  , message =
+                                        "This `describe \"nothing\"` "
+                                            ++ "has no tests in it. "
+                                            ++ "Let's give it some!"
+                                  }
+                                ]
+                              )
+                            ]
                         }
     , test "increments test counter" <|
         \_ ->
