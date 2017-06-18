@@ -1,12 +1,12 @@
 module View exposing (view)
 
-import String
-import Time exposing (Time)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import String
 import Test.Runner
 import Test.Runner.Html.View as View
 import Test.Runner.Outcome as Outcome
+import Time exposing (Time)
 
 
 view : View.Model -> Html a
@@ -41,41 +41,41 @@ finished duration passed status =
         thStyle =
             [ ( "text-align", "left" ), ( "padding-right", "10px" ) ]
     in
-        summarize status <|
-            div []
-                [ h2 [ style [ ( "color", headlineColor ) ] ]
-                    [ text headlineText ]
-                , table []
-                    [ tbody []
-                        [ tr []
-                            [ th [ style thStyle ]
-                                [ text "Duration" ]
-                            , td []
-                                [ text (formatDuration duration) ]
-                            ]
-                        , tr []
-                            [ th [ style thStyle ]
-                                [ text "Passed" ]
-                            , td []
-                                [ text (toString passed) ]
-                            ]
-                        , tr []
-                            [ th [ style thStyle ]
-                                [ text "Failed" ]
-                            , td []
-                                [ text <|
-                                    toString <|
-                                        case status of
-                                            Outcome.Pass ->
-                                                0
+    summarize status <|
+        div []
+            [ h2 [ style [ ( "color", headlineColor ) ] ]
+                [ text headlineText ]
+            , table []
+                [ tbody []
+                    [ tr []
+                        [ th [ style thStyle ]
+                            [ text "Duration" ]
+                        , td []
+                            [ text (formatDuration duration) ]
+                        ]
+                    , tr []
+                        [ th [ style thStyle ]
+                            [ text "Passed" ]
+                        , td []
+                            [ text (toString passed) ]
+                        ]
+                    , tr []
+                        [ th [ style thStyle ]
+                            [ text "Failed" ]
+                        , td []
+                            [ text <|
+                                toString <|
+                                    case status of
+                                        Outcome.Pass ->
+                                            0
 
-                                            Outcome.Fail _ failures ->
-                                                List.length failures
-                                ]
+                                        Outcome.Fail _ failures ->
+                                            List.length failures
                             ]
                         ]
                     ]
                 ]
+            ]
 
 
 header : Outcome.Status -> ( String, String )
@@ -86,24 +86,24 @@ header status =
             , "Test Run Passed"
             )
 
-        Outcome.Fail (Outcome.Normal) _ ->
+        Outcome.Fail Outcome.Normal _ ->
             ( palette.red
             , "Test Run Failed"
             )
 
-        Outcome.Fail (Outcome.Todo) failures ->
+        Outcome.Fail Outcome.Todo failures ->
             ( palette.yellow
             , "Test Run Incomplete: "
                 ++ toString (List.length failures)
                 ++ " TODOs remaining"
             )
 
-        Outcome.Fail (Outcome.Only) _ ->
+        Outcome.Fail Outcome.Only _ ->
             ( palette.yellow
             , "Test Run Incomplete: Test.only was used"
             )
 
-        Outcome.Fail (Outcome.Skip) _ ->
+        Outcome.Fail Outcome.Skip _ ->
             ( palette.yellow
             , "Test Run Incomplete: Test.skip was used"
             )
@@ -143,9 +143,9 @@ viewFailure ( labels, expectations ) =
                 , pre messageAttributes [ text message ]
                 ]
     in
-        li
-            [ style [ ( "margin", "40px 0" ) ] ]
-            (viewLabels labels ++ List.map inContext expectations)
+    li
+        [ style [ ( "margin", "40px 0" ) ] ]
+        (viewLabels labels ++ List.map inContext expectations)
 
 
 viewLabels : List String -> List (Html a)

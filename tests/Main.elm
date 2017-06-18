@@ -1,12 +1,12 @@
 module Main exposing (..)
 
 import Expect
+import Fixtures
 import Test exposing (..)
 import Test.Runner.Html
 import Test.Runner.Html.App as App
 import Test.Runner.Html.View as View
 import Test.Runner.Outcome as Outcome
-import Fixtures
 
 
 suite : Test

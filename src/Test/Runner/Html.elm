@@ -27,6 +27,7 @@ type alias TestProgram =
 
 Fuzz tests use a default run count of 100, and an initial seed based on the
 system time when the test runs begin.
+
 -}
 run : Test -> TestProgram
 run =

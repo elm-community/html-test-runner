@@ -1,20 +1,20 @@
 module Test.Runner.Outcome
     exposing
-        ( Outcome
-        , Status(..)
+        ( Failure
+        , Outcome
         , Reason(..)
-        , Failure
+        , Status(..)
         , fromTest
-        , status
-        , remaining
         , passed
+        , remaining
+        , status
         , step
         )
 
-import Test exposing (Test)
-import Test.Runner exposing (Runner)
 import Expect exposing (Expectation)
 import Random.Pcg as Random
+import Test exposing (Test)
+import Test.Runner exposing (Runner)
 
 
 type Outcome
@@ -81,16 +81,17 @@ step (Outcome outcome) =
         next :: queue ->
             next.run ()
                 |> fromExpectation next.labels
-                |> \status ->
-                    Outcome
-                        { runners = queue
-                        , status = append outcome.status status
-                        , passed =
-                            if status == Pass then
-                                1 + outcome.passed
-                            else
-                                outcome.passed
-                        }
+                |> (\status ->
+                        Outcome
+                            { runners = queue
+                            , status = append outcome.status status
+                            , passed =
+                                if status == Pass then
+                                    1 + outcome.passed
+                                else
+                                    outcome.passed
+                            }
+                   )
 
 
 fromExpectation : List String -> List Expect.Expectation -> Status
@@ -110,12 +111,12 @@ fromExpectation labels expectations =
                 ( _, Nothing ) ->
                     old
     in
-        if List.isEmpty failures && List.isEmpty todos then
-            Pass
-        else if List.isEmpty failures then
-            Fail Todo [ ( labels, todos ) ]
-        else
-            Fail Normal [ ( labels, failures ) ]
+    if List.isEmpty failures && List.isEmpty todos then
+        Pass
+    else if List.isEmpty failures then
+        Fail Todo [ ( labels, todos ) ]
+    else
+        Fail Normal [ ( labels, failures ) ]
 
 
 append : Status -> Status -> Status

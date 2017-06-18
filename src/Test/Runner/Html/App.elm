@@ -1,20 +1,20 @@
 module Test.Runner.Html.App
     exposing
-        ( Msg(..)
-        , Model
+        ( Model
+        , Msg(..)
         , init
-        , update
         , present
+        , update
         )
 
-import Task
-import Time exposing (Time)
-import Random.Pcg as Random
 import Expect exposing (Expectation)
+import Random.Pcg as Random
+import Task
 import Test exposing (Test)
 import Test.Runner as Runner
 import Test.Runner.Html.View as View
 import Test.Runner.Outcome as Outcome
+import Time exposing (Time)
 
 
 type Msg
@@ -37,7 +37,7 @@ type alias State =
 
 
 {-| Dispatch as a Cmd so as to yield to the UI
-    thread in between test executions.
+thread in between test executions.
 -}
 dispatch : Cmd Msg
 dispatch =
@@ -59,7 +59,7 @@ start runs time test seed =
             , outcome = Outcome.fromTest runs seed test
             }
     in
-        ( Running state, dispatch )
+    ( Running state, dispatch )
 
 
 init : Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )

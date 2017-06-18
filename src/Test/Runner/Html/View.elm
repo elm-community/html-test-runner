@@ -1,7 +1,7 @@
 module Test.Runner.Html.View exposing (..)
 
-import Time exposing (Time)
 import Test.Runner.Outcome as Outcome
+import Time exposing (Time)
 
 
 type Model
