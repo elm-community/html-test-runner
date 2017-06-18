@@ -17,111 +17,63 @@ import Test.Runner.Outcome as Outcome
 import Time exposing (Time)
 
 
-type Msg
-    = Start Time
-    | Dispatch
-    | Finish Time
-
-
 type Model
     = NotStarted (Maybe Random.Seed) Int Test
-    | Running State
-    | Finished Time State
+    | Started Time Time Outcome.Status
 
 
-type alias State =
-    { completed : Int
-    , startTime : Time
-    , outcome : Outcome.Outcome
-    }
+type Msg
+    = Dispatch Time
 
 
-{-| Dispatch as a Cmd so as to yield to the UI
-thread in between test executions.
--}
 dispatch : Cmd Msg
 dispatch =
-    Task.succeed Dispatch
-        |> Task.perform identity
+    Task.perform Dispatch Time.now
 
 
-now : (Time -> a) -> Cmd a
-now msg =
-    Task.perform msg Time.now
-
-
-start : Int -> Time -> Test -> Random.Seed -> ( Model, Cmd Msg )
-start runs time test seed =
-    let
-        state =
-            { completed = 0
-            , startTime = time
-            , outcome = Outcome.fromTest runs seed test
-            }
-    in
-    ( Running state, dispatch )
+start : Int -> Test -> Random.Seed -> Outcome.Status
+start runs test seed =
+    Outcome.fromTest runs seed test
+        |> Outcome.step
 
 
 init : Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )
 init runs maybeSeed test =
-    ( NotStarted maybeSeed runs test, now Start )
+    ( NotStarted maybeSeed runs test, dispatch )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    case ( msg, model ) of
-        ( Start time, NotStarted Nothing runs test ) ->
-            floor time
+update (Dispatch now) model =
+    case model of
+        NotStarted Nothing runs test ->
+            ( floor now
                 |> Random.initialSeed
-                |> start runs time test
+                |> start runs test
+                |> Started now now
+            , dispatch
+            )
 
-        ( Start time, NotStarted (Just seed) runs test ) ->
-            start runs time test seed
+        NotStarted (Just seed) runs test ->
+            ( Started now now (start runs test seed)
+            , dispatch
+            )
 
-        ( Finish time, Running state ) ->
-            ( Finished time state, Cmd.none )
+        Started startTime _ (Outcome.Running { next }) ->
+            ( Started startTime now (Outcome.step next)
+            , dispatch
+            )
 
-        ( Dispatch, Running state ) ->
-            if Outcome.remaining state.outcome == 0 then
-                ( model, now Finish )
-            else
-                ( Running
-                    { state
-                        | outcome = Outcome.step state.outcome
-                        , completed = state.completed + 1
-                    }
-                , dispatch
-                )
-
-        ( Start _, _ ) ->
-            Debug.crash "Attempted to start twice!"
-
-        ( _, NotStarted _ _ _ ) ->
-            Debug.crash "Attempted to run a Msg pre-Start!"
-
-        ( Finish _, Finished _ _ ) ->
-            Debug.crash "Attempted to Finish more than once!"
-
-        ( Dispatch, Finished _ _ ) ->
-            Debug.crash "Attempted to run tests after program finished!"
+        Started startTime _ status ->
+            ( Started startTime now status
+            , Cmd.none
+            )
 
 
 present : Model -> View.Model
 present model =
     case model of
         NotStarted _ _ _ ->
-            View.NotStarted
+            Nothing
 
-        Running state ->
-            View.Running
-                { completed = state.completed
-                , remaining = Outcome.remaining state.outcome
-                , status = Outcome.status state.outcome
-                }
-
-        Finished finishTime state ->
-            View.Finished
-                { duration = finishTime - state.startTime
-                , passed = Outcome.passed state.outcome
-                , status = Outcome.status state.outcome
-                }
+        Started startTime now status ->
+            Just ( now - startTime, status )

@@ -5,9 +5,6 @@ module Test.Runner.Outcome
         , Reason(..)
         , Status(..)
         , fromTest
-        , passed
-        , remaining
-        , status
         , step
         )
 
@@ -18,23 +15,35 @@ import Test.Runner exposing (Runner)
 
 
 type Outcome
-    = Outcome
-        { passed : Int
-        , runners : List Runner
-        , status : Status
-        }
+    = Outcome Internals
+
+
+type alias Internals =
+    { passed : Int
+    , failures : List Failure
+    , todos : List Failure
+    , runners : List Runner
+    , autoFail : Maybe Reason
+    }
 
 
 type Status
-    = Pass
-    | Fail Reason (List Failure)
+    = Running
+        { passed : Int
+        , remaining : Int
+        , failures : List Failure
+        , next : Outcome
+        }
+    | Pass Int
+    | Fail Int (List Failure)
+    | Todo Int (List Failure)
+    | AutoFail Int Reason
 
 
 type Reason
-    = Normal
-    | Todo
+    = Skip
+      -- | Custom String
     | Only
-    | Skip
 
 
 type alias Failure =
@@ -43,59 +52,58 @@ type alias Failure =
 
 fromTest : Int -> Random.Seed -> Test -> Outcome
 fromTest runs seed test =
+    let
+        new runners autoFail =
+            Outcome
+                { passed = 0
+                , failures = []
+                , todos = []
+                , runners = runners
+                , autoFail = autoFail
+                }
+    in
     case Test.Runner.fromTest runs seed test of
         Test.Runner.Plain runners ->
-            Outcome { passed = 0, runners = runners, status = Pass }
+            new runners Nothing
 
         Test.Runner.Only runners ->
-            Outcome { passed = 0, runners = runners, status = Fail Only [] }
+            new runners (Just Only)
 
         Test.Runner.Skipping runners ->
-            Outcome { passed = 0, runners = runners, status = Fail Skip [] }
+            new runners (Just Skip)
 
         Test.Runner.Invalid _ ->
-            Outcome { passed = 0, runners = [], status = Pass }
+            Debug.crash "Invalid"
 
 
-status : Outcome -> Status
-status (Outcome outcome) =
-    outcome.status
+step : Outcome -> Status
+step (Outcome internals) =
+    case
+        ( internals.autoFail
+        , internals.todos
+        , internals.failures
+        , internals.runners
+        )
+    of
+        ( Nothing, [], [], [] ) ->
+            Pass internals.passed
 
+        ( Nothing, todos, [], [] ) ->
+            Todo internals.passed todos
 
-remaining : Outcome -> Int
-remaining (Outcome outcome) =
-    List.length outcome.runners
+        ( Just reason, _, [], [] ) ->
+            AutoFail internals.passed reason
 
+        ( _, _, failures, [] ) ->
+            Fail internals.passed failures
 
-passed : Outcome -> Int
-passed (Outcome outcome) =
-    outcome.passed
-
-
-step : Outcome -> Outcome
-step (Outcome outcome) =
-    case outcome.runners of
-        [] ->
-            Outcome outcome
-
-        next :: queue ->
+        ( _, _, _, next :: queue ) ->
             next.run ()
-                |> fromExpectation next.labels
-                |> (\status ->
-                        Outcome
-                            { runners = queue
-                            , status = append outcome.status status
-                            , passed =
-                                if status == Pass then
-                                    1 + outcome.passed
-                                else
-                                    outcome.passed
-                            }
-                   )
+                |> fromExpectation { internals | runners = queue } next.labels
 
 
-fromExpectation : List String -> List Expect.Expectation -> Status
-fromExpectation labels expectations =
+fromExpectation : Internals -> List String -> List Expect.Expectation -> Status
+fromExpectation internals labels expectations =
     let
         ( todos, failures ) =
             List.foldr partition ( [], [] ) expectations
@@ -112,39 +120,27 @@ fromExpectation labels expectations =
                     old
     in
     if List.isEmpty failures && List.isEmpty todos then
-        Pass
+        toRunning
+            { internals
+                | passed = internals.passed + 1
+            }
     else if List.isEmpty failures then
-        Fail Todo [ ( labels, todos ) ]
+        toRunning
+            { internals
+                | todos = internals.todos ++ [ ( labels, todos ) ]
+            }
     else
-        Fail Normal [ ( labels, failures ) ]
+        toRunning
+            { internals
+                | failures = internals.failures ++ [ ( labels, failures ) ]
+            }
 
 
-append : Status -> Status -> Status
-append old new =
-    case ( old, new ) of
-        ( Pass, Pass ) ->
-            Pass
-
-        ( Pass, Fail _ _ ) ->
-            new
-
-        ( Fail _ _, Pass ) ->
-            old
-
-        ( Fail Normal oldMessages, Fail Normal newMessages ) ->
-            Fail Normal (oldMessages ++ newMessages)
-
-        ( Fail Todo oldMessages, Fail Todo newMessages ) ->
-            Fail Todo (oldMessages ++ newMessages)
-
-        ( Fail Only oldMessages, Fail Only newMessages ) ->
-            Fail Only (oldMessages ++ newMessages)
-
-        ( Fail Skip oldMessages, Fail Skip newMessages ) ->
-            Fail Skip (oldMessages ++ newMessages)
-
-        ( Fail _ _, Fail Normal _ ) ->
-            new
-
-        ( Fail _ _, Fail _ _ ) ->
-            old
+toRunning : Internals -> Status
+toRunning internals =
+    Running
+        { passed = internals.passed
+        , remaining = List.length internals.runners
+        , failures = internals.failures
+        , next = Outcome internals
+        }

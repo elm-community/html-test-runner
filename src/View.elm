@@ -12,105 +12,85 @@ import Time exposing (Time)
 view : View.Model -> Html a
 view model =
     case model of
-        View.NotStarted ->
+        Nothing ->
             text ""
 
-        View.Running { completed, remaining, status } ->
-            running completed remaining status
+        Just ( duration, Outcome.Pass passed ) ->
+            ( palette.green, "Test Run Passed" )
+                |> finished duration passed []
+                |> summarize []
 
-        View.Finished { duration, passed, status } ->
-            finished duration passed status
+        Just ( duration, Outcome.Todo passed failures ) ->
+            ( palette.yellow, "Test Run Incomplete" )
+                |> finished duration passed failures
+                |> summarize failures
 
-
-running : Int -> Int -> Outcome.Status -> Html a
-running completed remaining status =
-    summarize status <|
-        div []
-            [ h2 [] [ text "Running Tests..." ]
-            , div [] [ text (toString completed ++ " completed") ]
-            , div [] [ text (toString remaining ++ " remaining") ]
-            ]
-
-
-finished : Time -> Int -> Outcome.Status -> Html a
-finished duration passed status =
-    let
-        ( headlineColor, headlineText ) =
-            header status
-
-        thStyle =
-            [ ( "text-align", "left" ), ( "padding-right", "10px" ) ]
-    in
-    summarize status <|
-        div []
-            [ h2 [ style [ ( "color", headlineColor ) ] ]
-                [ text headlineText ]
-            , table []
-                [ tbody []
-                    [ tr []
-                        [ th [ style thStyle ]
-                            [ text "Duration" ]
-                        , td []
-                            [ text (formatDuration duration) ]
-                        ]
-                    , tr []
-                        [ th [ style thStyle ]
-                            [ text "Passed" ]
-                        , td []
-                            [ text (toString passed) ]
-                        ]
-                    , tr []
-                        [ th [ style thStyle ]
-                            [ text "Failed" ]
-                        , td []
-                            [ text <|
-                                toString <|
-                                    case status of
-                                        Outcome.Pass ->
-                                            0
-
-                                        Outcome.Fail _ failures ->
-                                            List.length failures
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-
-
-header : Outcome.Status -> ( String, String )
-header status =
-    case status of
-        Outcome.Pass ->
-            ( palette.green
-            , "Test Run Passed"
-            )
-
-        Outcome.Fail Outcome.Normal _ ->
-            ( palette.red
-            , "Test Run Failed"
-            )
-
-        Outcome.Fail Outcome.Todo failures ->
-            ( palette.yellow
-            , "Test Run Incomplete: "
-                ++ toString (List.length failures)
-                ++ " TODOs remaining"
-            )
-
-        Outcome.Fail Outcome.Only _ ->
+        Just ( duration, Outcome.AutoFail passed Outcome.Only ) ->
             ( palette.yellow
             , "Test Run Incomplete: Test.only was used"
             )
+                |> finished duration passed []
+                |> summarize []
 
-        Outcome.Fail Outcome.Skip _ ->
-            ( palette.yellow
-            , "Test Run Incomplete: Test.skip was used"
-            )
+        Just ( duration, Outcome.AutoFail passed Outcome.Skip ) ->
+            ( palette.yellow, "Test Run Incomplete: Test.skip was used" )
+                |> finished duration passed []
+                |> summarize []
+
+        Just ( duration, Outcome.Fail passed failures ) ->
+            ( palette.green, "Test Run Passed" )
+                |> finished duration passed failures
+                |> summarize failures
+
+        Just ( duration, Outcome.Running { passed, failures, remaining } ) ->
+            running (passed + List.length failures) remaining
+                |> summarize failures
 
 
-summarize : Outcome.Status -> Html a -> Html a
-summarize status content =
+running : Int -> Int -> Html a
+running completed remaining =
+    div []
+        [ h2 [] [ text "Running Tests..." ]
+        , div [] [ text (toString completed ++ " completed") ]
+        , div [] [ text (toString remaining ++ " remaining") ]
+        ]
+
+
+finished : Time -> Int -> List a -> ( String, String ) -> Html b
+finished duration passed failures ( headlineColor, headlineText ) =
+    let
+        thStyle =
+            [ ( "text-align", "left" ), ( "padding-right", "10px" ) ]
+    in
+    div []
+        [ h2 [ style [ ( "color", headlineColor ) ] ]
+            [ text headlineText ]
+        , table []
+            [ tbody []
+                [ tr []
+                    [ th [ style thStyle ]
+                        [ text "Duration" ]
+                    , td []
+                        [ text (formatDuration duration) ]
+                    ]
+                , tr []
+                    [ th [ style thStyle ]
+                        [ text "Passed" ]
+                    , td []
+                        [ text (toString passed) ]
+                    ]
+                , tr []
+                    [ th [ style thStyle ]
+                        [ text "Failed" ]
+                    , td [] [ text (toString (List.length failures)) ]
+                    ]
+                ]
+            ]
+        ]
+
+
+summarize : List Outcome.Failure -> Html a -> Html a
+summarize failures content =
     div
         [ style
             [ ( "width", "960px" )
@@ -119,13 +99,9 @@ summarize status content =
             ]
         ]
         [ content
-        , ol [ class "results", resultsStyle ] <|
-            case status of
-                Outcome.Pass ->
-                    []
-
-                Outcome.Fail _ failures ->
-                    List.map viewFailure failures
+        , ol
+            [ class "results", resultsStyle ]
+            (List.map viewFailure failures)
         ]
 
 
