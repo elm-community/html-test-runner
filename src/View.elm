@@ -6,6 +6,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Test.Runner
 import Test.Runner.Html.View as View
+import Test.Runner.Outcome as Outcome
 
 
 view : View.Model -> Html a
@@ -14,16 +15,16 @@ view model =
         View.NotStarted ->
             text ""
 
-        View.Running { completed, remaining, failures } ->
-            running completed remaining failures
+        View.Running { completed, remaining, outcome } ->
+            running completed remaining outcome
 
-        View.Finished { duration, passed, failures } ->
-            finished duration passed failures
+        View.Finished { duration, passed, outcome } ->
+            finished duration passed outcome
 
 
-running : Int -> Int -> List View.FailGroup -> Html a
-running completed remaining failures =
-    summarize failures <|
+running : Int -> Int -> Outcome.Outcome -> Html a
+running completed remaining outcome =
+    summarize outcome <|
         div []
             [ h2 [] [ text "Running Tests..." ]
             , div [] [ text (toString completed ++ " completed") ]
@@ -31,19 +32,19 @@ running completed remaining failures =
             ]
 
 
-finished : Time -> Int -> List View.FailGroup -> Html a
-finished duration passed failures =
+finished : Time -> Int -> Outcome.Outcome -> Html a
+finished duration passed outcome =
     let
         ( headlineColor, headlineText ) =
-            if List.isEmpty failures then
-                ( "darkgreen", "Test Run Passed" )
+            if outcome == Outcome.Pass then
+                ( "darkgreen", "Outcome Run Passed" )
             else
-                ( "hsla(3, 100%, 40%, 1.0)", "Test Run Failed" )
+                ( "hsla(3, 100%, 40%, 1.0)", "Outcome Run Failed" )
 
         thStyle =
             [ ( "text-align", "left" ), ( "padding-right", "10px" ) ]
     in
-        summarize failures <|
+        summarize outcome <|
             div []
                 [ h2 [ style [ ( "color", headlineColor ) ] ]
                     [ text headlineText ]
@@ -65,22 +66,23 @@ finished duration passed failures =
                             [ th [ style thStyle ]
                                 [ text "Failed" ]
                             , td []
-                                [ text (toString (List.length failures)) ]
+                                [ text <| toString <| Outcome.countFailures outcome
+                                ]
                             ]
                         ]
                     ]
                 ]
 
 
-summarize : List View.FailGroup -> Html a -> Html a
-summarize failures content =
+summarize : Outcome.Outcome -> Html a -> Html a
+summarize outcome content =
     div [ style [ ( "width", "960px" ), ( "margin", "auto 40px" ), ( "font-family", "verdana, sans-serif" ) ] ]
         [ content
-        , ol [ class "results", resultsStyle ] (List.map viewFailGroup failures)
+        , ol [ class "results", resultsStyle ] (Outcome.mapFailure viewFailGroup outcome)
         ]
 
 
-viewFailGroup : View.FailGroup -> Html a
+viewFailGroup : Outcome.Failure -> Html a
 viewFailGroup ( labels, expectations ) =
     let
         inContext { given, message } =

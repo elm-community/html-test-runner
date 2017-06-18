@@ -11,10 +11,11 @@ import Time exposing (Time)
 import Task
 import Tuple
 import Random.Pcg as Random
+import Expect exposing (Expectation)
 import Test exposing (Test)
 import Test.Runner as Runner
 import Test.Runner.Html.View as View
-import Expect exposing (Expectation)
+import Test.Runner.Outcome as Outcome
 
 
 type Msg
@@ -30,9 +31,10 @@ type Model
 
 
 type alias State =
-    { completed : List ( List String, List Expectation )
+    { completed : Int
     , startTime : Time
     , finishTime : Maybe Time
+    , outcome : Outcome.Outcome
     }
 
 
@@ -57,28 +59,18 @@ start runs time test seed =
             Runner.fromTest runs seed test |> extractRunners
 
         state =
-            { completed = []
+            { completed = 0
             , startTime = time
             , finishTime = Nothing
+            , outcome = Outcome.Pass
             }
     in
         ( Running thunks state, dispatch )
 
 
-run : Runner.Runner -> State -> State
-run runnable state =
-    { state
-        | completed = state.completed ++ [ ( runnable.labels, runnable.run () ) ]
-    }
-
-
-init : Maybe Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )
-init maybeRuns maybeSeed test =
-    let
-        runs =
-            Maybe.withDefault defaultRunCount maybeRuns
-    in
-        ( NotStarted maybeSeed runs test, now Start )
+init : Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )
+init runs maybeSeed test =
+    ( NotStarted maybeSeed runs test, now Start )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -99,7 +91,13 @@ update msg model =
             ( Running [] state, now Finish )
 
         ( Dispatch, Running (runner :: queue) state ) ->
-            ( Running queue (run runner state), dispatch )
+            ( Running queue
+                { state
+                    | outcome = Outcome.run runner state.outcome
+                    , completed = state.completed + 1
+                }
+            , dispatch
+            )
 
         ( Start _, _ ) ->
             Debug.crash "Attempted to start twice!"
@@ -122,45 +120,24 @@ present model =
 
         Running queue state ->
             View.Running
-                { completed = List.length state.completed
-                , remaining = List.length (Debug.log "queue" queue)
-                , failures = formatFailures state.completed
+                { completed = state.completed
+                , remaining = List.length queue
+                , outcome = state.outcome
                 }
 
         Finished finishTime state ->
-            let
-                failures =
-                    formatFailures state.completed
-            in
-                View.Finished
-                    { duration = finishTime - state.startTime
-                    , passed = List.length state.completed - List.length failures
-                    , failures = failures
-                    }
-
-
-formatFailures : List ( List String, List Expectation ) -> List View.FailGroup
-formatFailures =
-    List.filterMap <|
-        \( labels, expectations ) ->
-            case List.filterMap Runner.getFailure expectations of
-                [] ->
-                    Nothing
-
-                failures ->
-                    Just ( labels, failures )
+            View.Finished
+                { duration = finishTime - state.startTime
+                , passed = state.completed - Outcome.countFailures state.outcome
+                , outcome = state.outcome
+                }
 
 
 extractRunners : Runner.SeededRunners -> List Runner.Runner
 extractRunners seeded =
     case seeded of
         Runner.Plain runners ->
-            Debug.log "runners" runners
+            runners
 
         _ ->
             Debug.crash "TODO: implement other runners"
-
-
-defaultRunCount : Int
-defaultRunCount =
-    100

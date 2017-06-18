@@ -39,7 +39,7 @@ run =
 runWithOptions : Maybe Int -> Maybe Random.Seed -> Test -> TestProgram
 runWithOptions runs seed test =
     Html.program
-        { init = App.init runs seed test
+        { init = App.init (Maybe.withDefault 100 runs) seed test
         , update = App.update
         , view = App.present >> View.view
         , subscriptions = \_ -> Sub.none

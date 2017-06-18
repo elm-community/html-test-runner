@@ -1,4 +1,4 @@
-module Main exposing (main)
+module Main exposing (..)
 
 import Dict
 import Set
@@ -7,18 +7,31 @@ import Test exposing (..)
 import Test.Runner.Html
 import Test.Runner.Html.App as App
 import Test.Runner.Html.View as View
+import Test.Runner.Outcome as Outcome
 
 
 -- FIXTURES
 
 
-noTests : Test
-noTests =
+type alias Fixture =
+    () -> Test
+
+
+noTests : Fixture
+noTests () =
     describe "nothing" []
 
 
-oneTest : Test
-oneTest =
+todoWithFailingTest : Fixture
+todoWithFailingTest () =
+    describe "todo then passing"
+        [ test "done" (\_ -> Expect.fail "just cause")
+        , todo "haven't done this yet"
+        ]
+
+
+oneTest : Fixture
+oneTest () =
     describe "a"
         [ describe "very"
             [ describe "nested"
@@ -27,8 +40,8 @@ oneTest =
         ]
 
 
-twoTests : Test
-twoTests =
+twoTests : Fixture
+twoTests () =
     describe "both"
         [ test "one" (\_ -> Expect.pass)
         , test "two" (\_ -> Expect.fail "message")
@@ -39,93 +52,114 @@ twoTests =
 -- REAL TESTS
 
 
-suite : List Test
+suite : Test
 suite =
     [ test "shows nothing on init" <|
         \_ ->
-            App.init Nothing Nothing noTests
-                |- App.present
+            init noTests
                 |== View.NotStarted
     , test "no tests has one (failure) expectation" <|
         \_ ->
-            App.init Nothing Nothing noTests
+            init noTests
                 |- App.update (App.Start 5)
-                |- App.present
                 |== View.Running
                         { completed = 0
                         , remaining = 1
-                        , failures = []
+                        , outcome = Outcome.Pass
                         }
     , test "fails when describe has no tests" <|
         \_ ->
-            App.init Nothing Nothing noTests
+            init noTests
                 |- App.update (App.Start 5)
                 |- App.update App.Dispatch
                 |- App.update (App.Finish 10)
-                |- App.present
                 |== View.Finished
                         { duration = 5
                         , passed = 0
-                        , failures =
-                            [ ( []
-                              , [ { given =
-                                        Nothing
-                                  , message =
-                                        "This `describe \"nothing\"` "
-                                            ++ "has no tests in it. "
-                                            ++ "Let's give it some!"
-                                  }
+                        , outcome =
+                            Outcome.Fail
+                                [ ( []
+                                  , [ { given =
+                                            Nothing
+                                      , message =
+                                            "This `describe \"nothing\"` "
+                                                ++ "has no tests in it. "
+                                                ++ "Let's give it some!"
+                                      }
+                                    ]
+                                  )
                                 ]
-                              )
-                            ]
                         }
     , test "passing one nested test" <|
         \_ ->
-            App.init Nothing Nothing oneTest
+            init oneTest
                 |- App.update (App.Start 5)
                 |- App.update App.Dispatch
                 |- App.update App.Dispatch
                 |- App.update (App.Finish 15)
-                |- App.present
                 |== View.Finished
                         { duration = 10
                         , passed = 1
-                        , failures = []
+                        , outcome = Outcome.Pass
                         }
     , test "increments test counter" <|
         \_ ->
-            App.init Nothing Nothing twoTests
+            init twoTests
                 |- App.update (App.Start 5)
                 |- App.update App.Dispatch
-                |- App.present
                 |== View.Running
                         { completed = 1
                         , remaining = 1
-                        , failures = []
+                        , outcome = Outcome.Pass
                         }
     , test "captures failures" <|
         \_ ->
-            App.init Nothing Nothing twoTests
+            init twoTests
                 |- App.update (App.Start 5)
                 |- App.update App.Dispatch
                 |- App.update App.Dispatch
-                |- App.present
                 |== View.Running
                         { completed = 2
                         , remaining = 0
-                        , failures =
-                            [ ( [ "two", "both" ]
-                              , [ { given = Nothing, message = "message" } ]
-                              )
-                            ]
+                        , outcome =
+                            Outcome.Fail
+                                [ ( [ "two", "both" ]
+                                  , [ { given = Nothing, message = "message" } ]
+                                  )
+                                ]
+                        }
+    , test "doesn't show todo with failure" <|
+        \_ ->
+            init todoWithFailingTest
+                |- App.update (App.Start 5)
+                |- App.update App.Dispatch
+                |- App.update App.Dispatch
+                |== View.Running
+                        { completed = 2
+                        , remaining = 0
+                        , outcome =
+                            Outcome.Fail
+                                [ ( [ "done", "todo then passing" ]
+                                  , [ { given = Nothing, message = "just cause" } ]
+                                  )
+                                ]
                         }
     ]
+        |> describe "Test.Runner.Html.App"
 
 
 main : Test.Runner.Html.TestProgram
 main =
-    describe "Test.Runner.Html.App" suite
-        |> Test.Runner.Html.run
+    Test.Runner.Html.run suite
+
+
+
+-- HELPERS
+
+
+init : (() -> Test) -> ( App.Model, Cmd App.Msg )
+init f =
+    App.init 100 Nothing (f ())
 
 
 {-| Extract first tuple element then map. Useful for piping update functions!
@@ -138,7 +172,7 @@ infixl 0 |-
 
 {-| Shortcut for Expect.equal.
 -}
-(|==) : a -> a -> Expect.Expectation
-(|==) top bottom =
-    Expect.equal bottom top
+(|==) : ( App.Model, b ) -> View.Model -> Expect.Expectation
+(|==) ( appModel, _ ) viewModel =
+    Expect.equal viewModel (App.present appModel)
 infixl 0 |==
