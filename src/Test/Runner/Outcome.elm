@@ -51,7 +51,7 @@ fromTest runs seed test =
             Outcome { passed = 0, runners = runners, status = Fail Only [] }
 
         Test.Runner.Skipping runners ->
-            Outcome { passed = 0, runners = runners, status = Pass }
+            Outcome { passed = 0, runners = runners, status = Fail Skip [] }
 
         Test.Runner.Invalid _ ->
             Outcome { passed = 0, runners = [], status = Pass }

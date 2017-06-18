@@ -128,7 +128,7 @@ suite =
                         }
     , test "shows only in isolation" <|
         \_ ->
-            init Fixtures.onlyPassing
+            init (Fixtures.oneTest >> only)
                 |- App.Start 5
                 |- App.Dispatch
                 |- App.Dispatch
@@ -137,6 +137,18 @@ suite =
                         { passed = 1
                         , duration = 94
                         , status = Outcome.Fail Outcome.Only []
+                        }
+    , test "shows skip in isolation" <|
+        \_ ->
+            init (Fixtures.noTests >> skip)
+                |- App.Start 5
+                |- App.Dispatch
+                |- App.Dispatch
+                |- App.Finish 99
+                |== View.Finished
+                        { passed = 0
+                        , duration = 94
+                        , status = Outcome.Fail Outcome.Skip []
                         }
     ]
         |> describe "Test.Runner.Html.App"
