@@ -5,4 +5,4 @@ Run elm-test suites in the browser
 
 1. `cd examples`
 2. `elm-reactor`
-3. Visit [http://localhost:8000/HtmlRunnerExample.elm](http://localhost:8000/HtmlRunnerExample.elm)
+3. Visit [http://localhost:8000/Main.elm](http://localhost:8000/Main.elm)
