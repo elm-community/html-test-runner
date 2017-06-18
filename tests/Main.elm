@@ -3,10 +3,10 @@ module Main exposing (..)
 import Expect
 import Fixtures
 import Test exposing (..)
+import Test.Runner.Exploration as Runner
 import Test.Runner.Html
 import Test.Runner.Html.App as App
 import Test.Runner.Html.View as View
-import Test.Runner.Outcome as Outcome
 
 
 suite : Test
@@ -22,7 +22,7 @@ suite =
                 |- App.update (App.Dispatch 15)
                 |== Just
                         ( 10
-                        , Outcome.Fail 0
+                        , Runner.Fail 0
                             [ ( []
                               , [ { given =
                                         Nothing
@@ -40,7 +40,7 @@ suite =
             init Fixtures.oneTest
                 |- App.update (App.Dispatch 5)
                 |- App.update (App.Dispatch 15)
-                |== Just ( 10, Outcome.Pass 1 )
+                |== Just ( 10, Runner.Pass 1 )
     , test "increments test counter" <|
         \_ ->
             init Fixtures.twoTests
@@ -75,7 +75,7 @@ suite =
                 |- App.update (App.Dispatch 7)
                 |== Just
                         ( 2
-                        , Outcome.Fail 0
+                        , Runner.Fail 0
                             [ ( [ "done", "todo then failing" ]
                               , [ { given = Nothing
                                   , message = "just cause"
@@ -92,7 +92,7 @@ suite =
                 |- App.update (App.Dispatch 7)
                 |== Just
                         ( 2
-                        , Outcome.Todo 1
+                        , Runner.Todo 1
                             [ ( [ "todo then passing" ]
                               , [ { given = Nothing
                                   , message = "haven't done this yet"
@@ -106,13 +106,13 @@ suite =
             init (Fixtures.oneTest >> only)
                 |- App.update (App.Dispatch 5)
                 |- App.update (App.Dispatch 99)
-                |== Just ( 94, Outcome.AutoFail 1 Outcome.Only )
+                |== Just ( 94, Runner.AutoFail 1 Runner.Only )
     , test "shows skip in isolation" <|
         \_ ->
             init (Fixtures.noTests >> skip)
                 |- App.update (App.Dispatch 5)
                 |- App.update (App.Dispatch 99)
-                |== Just ( 94, Outcome.AutoFail 0 Outcome.Skip )
+                |== Just ( 94, Runner.AutoFail 0 Runner.Skip )
     ]
         |> describe "Test.Runner.Html.App"
 
@@ -132,18 +132,18 @@ init f =
 
 
 expectRunning :
-    { passed : Int, remaining : Int, failures : List Outcome.Failure }
+    { passed : Int, remaining : Int, failures : List Runner.Failure }
     -> App.Model
     -> Expect.Expectation
 expectRunning expected model =
     case App.present model of
-        Just ( _, Outcome.Running { passed, remaining, failures } ) ->
+        Just ( _, Runner.Running { passed, remaining, failures } ) ->
             Expect.equal
                 ( expected.passed, expected.remaining, expected.failures )
                 ( passed, remaining, failures )
 
         _ ->
-            "Expected Outcome.Running "
+            "Expected Runner.Running "
                 ++ toString expected
                 ++ " but got "
                 ++ toString model

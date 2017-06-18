@@ -4,8 +4,8 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import String
 import Test.Runner
+import Test.Runner.Exploration as Runner
 import Test.Runner.Html.View as View
-import Test.Runner.Outcome as Outcome
 import Time exposing (Time)
 
 
@@ -15,34 +15,34 @@ view model =
         Nothing ->
             text ""
 
-        Just ( duration, Outcome.Pass passed ) ->
+        Just ( duration, Runner.Pass passed ) ->
             ( palette.green, "Test Run Passed" )
                 |> finished duration passed []
                 |> summarize []
 
-        Just ( duration, Outcome.Todo passed failures ) ->
+        Just ( duration, Runner.Todo passed failures ) ->
             ( palette.yellow, "Test Run Incomplete" )
                 |> finished duration passed failures
                 |> summarize failures
 
-        Just ( duration, Outcome.AutoFail passed Outcome.Only ) ->
+        Just ( duration, Runner.AutoFail passed Runner.Only ) ->
             ( palette.yellow
             , "Test Run Incomplete: Test.only was used"
             )
                 |> finished duration passed []
                 |> summarize []
 
-        Just ( duration, Outcome.AutoFail passed Outcome.Skip ) ->
+        Just ( duration, Runner.AutoFail passed Runner.Skip ) ->
             ( palette.yellow, "Test Run Incomplete: Test.skip was used" )
                 |> finished duration passed []
                 |> summarize []
 
-        Just ( duration, Outcome.Fail passed failures ) ->
+        Just ( duration, Runner.Fail passed failures ) ->
             ( palette.green, "Test Run Passed" )
                 |> finished duration passed failures
                 |> summarize failures
 
-        Just ( duration, Outcome.Running { passed, failures, remaining } ) ->
+        Just ( duration, Runner.Running { passed, failures, remaining } ) ->
             running (passed + List.length failures) remaining
                 |> summarize failures
 
@@ -89,7 +89,7 @@ finished duration passed failures ( headlineColor, headlineText ) =
         ]
 
 
-summarize : List Outcome.Failure -> Html a -> Html a
+summarize : List Runner.Failure -> Html a -> Html a
 summarize failures content =
     div
         [ style
@@ -105,7 +105,7 @@ summarize failures content =
         ]
 
 
-viewFailure : Outcome.Failure -> Html a
+viewFailure : Runner.Failure -> Html a
 viewFailure ( labels, expectations ) =
     let
         inContext { given, message } =

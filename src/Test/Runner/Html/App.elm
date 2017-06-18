@@ -11,15 +11,14 @@ import Expect exposing (Expectation)
 import Random.Pcg as Random
 import Task
 import Test exposing (Test)
-import Test.Runner as Runner
+import Test.Runner.Exploration as Runner
 import Test.Runner.Html.View as View
-import Test.Runner.Outcome as Outcome
 import Time exposing (Time)
 
 
 type Model
     = NotStarted (Maybe Random.Seed) Int Test
-    | Started Time Time Outcome.Status
+    | Started Time Time Runner.Status
 
 
 type Msg
@@ -31,10 +30,10 @@ dispatch =
     Task.perform Dispatch Time.now
 
 
-start : Int -> Test -> Random.Seed -> Outcome.Status
+start : Int -> Test -> Random.Seed -> Runner.Status
 start runs test seed =
-    Outcome.fromTest runs seed test
-        |> Outcome.step
+    Runner.fromTest runs seed test
+        |> Runner.step
 
 
 init : Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )
@@ -58,8 +57,8 @@ update (Dispatch now) model =
             , dispatch
             )
 
-        Started startTime _ (Outcome.Running { next }) ->
-            ( Started startTime now (Outcome.step next)
+        Started startTime _ (Runner.Running { next }) ->
+            ( Started startTime now (Runner.step next)
             , dispatch
             )
 

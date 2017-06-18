@@ -1,28 +1,28 @@
-module Test.Runner.Outcome
+module Test.Runner.Exploration
     exposing
         ( Failure
-        , Outcome
         , Reason(..)
+        , Runner
         , Status(..)
         , fromTest
         , step
         )
 
-import Expect exposing (Expectation)
-import Random.Pcg as Random
-import Test exposing (Test)
-import Test.Runner exposing (Runner)
+import Expect
+import Random.Pcg
+import Test
+import Test.Runner
 
 
-type Outcome
-    = Outcome Internals
+type Runner
+    = Runner Internals
 
 
 type alias Internals =
     { passed : Int
     , failures : List Failure
     , todos : List Failure
-    , runners : List Runner
+    , queue : List Test.Runner.Runner
     , autoFail : Maybe Reason
     }
 
@@ -32,7 +32,7 @@ type Status
         { passed : Int
         , remaining : Int
         , failures : List Failure
-        , next : Outcome
+        , next : Runner
         }
     | Pass Int
     | Fail Int (List Failure)
@@ -50,39 +50,39 @@ type alias Failure =
     ( List String, List { given : Maybe String, message : String } )
 
 
-fromTest : Int -> Random.Seed -> Test -> Outcome
+fromTest : Int -> Random.Pcg.Seed -> Test.Test -> Runner
 fromTest runs seed test =
     let
-        new runners autoFail =
-            Outcome
+        new queue autoFail =
+            Runner
                 { passed = 0
                 , failures = []
                 , todos = []
-                , runners = runners
+                , queue = queue
                 , autoFail = autoFail
                 }
     in
     case Test.Runner.fromTest runs seed test of
-        Test.Runner.Plain runners ->
-            new runners Nothing
+        Test.Runner.Plain queue ->
+            new queue Nothing
 
-        Test.Runner.Only runners ->
-            new runners (Just Only)
+        Test.Runner.Only queue ->
+            new queue (Just Only)
 
-        Test.Runner.Skipping runners ->
-            new runners (Just Skip)
+        Test.Runner.Skipping queue ->
+            new queue (Just Skip)
 
         Test.Runner.Invalid _ ->
             Debug.crash "Invalid"
 
 
-step : Outcome -> Status
-step (Outcome internals) =
+step : Runner -> Status
+step (Runner internals) =
     case
         ( internals.autoFail
         , internals.todos
         , internals.failures
-        , internals.runners
+        , internals.queue
         )
     of
         ( Nothing, [], [], [] ) ->
@@ -99,7 +99,7 @@ step (Outcome internals) =
 
         ( _, _, _, next :: queue ) ->
             next.run ()
-                |> fromExpectation { internals | runners = queue } next.labels
+                |> fromExpectation { internals | queue = queue } next.labels
 
 
 fromExpectation : Internals -> List String -> List Expect.Expectation -> Status
@@ -140,7 +140,7 @@ toRunning : Internals -> Status
 toRunning internals =
     Running
         { passed = internals.passed
-        , remaining = List.length internals.runners
+        , remaining = List.length internals.queue
         , failures = internals.failures
-        , next = Outcome internals
+        , next = Runner internals
         }
