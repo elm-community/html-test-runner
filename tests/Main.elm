@@ -1,7 +1,5 @@
 module Main exposing (..)
 
-import Dict
-import Set
 import Expect
 import Test exposing (..)
 import Test.Runner.Html
@@ -98,8 +96,24 @@ suite =
                         , remaining = 0
                         , outcome =
                             Outcome.Fail
-                                [ ( [ "done", "todo then passing" ]
+                                [ ( [ "done", "todo then failing" ]
                                   , [ { given = Nothing, message = "just cause" } ]
+                                  )
+                                ]
+                        }
+    , test "shows todo with passing" <|
+        \_ ->
+            init Fixtures.todoWithPassingTest
+                |- App.Start 5
+                |- App.Dispatch
+                |- App.Dispatch
+                |== View.Running
+                        { completed = 2
+                        , remaining = 0
+                        , outcome =
+                            Outcome.Todo
+                                [ ( [ "todo then passing" ]
+                                  , [ { given = Nothing, message = "haven't done this yet" } ]
                                   )
                                 ]
                         }

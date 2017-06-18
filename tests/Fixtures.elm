@@ -15,8 +15,16 @@ noTests () =
 
 todoWithFailingTest : Fixture
 todoWithFailingTest () =
-    describe "todo then passing"
+    describe "todo then failing"
         [ test "done" (\_ -> Expect.fail "just cause")
+        , todo "haven't done this yet"
+        ]
+
+
+todoWithPassingTest : Fixture
+todoWithPassingTest () =
+    describe "todo then passing"
+        [ test "done" (\_ -> Expect.pass)
         , todo "haven't done this yet"
         ]
 
