@@ -41,7 +41,7 @@ view model =
                 |> summarize []
 
         Just ( duration, Runner.Fail passed failures ) ->
-            ( palette.green, "Test Run Failed" )
+            ( palette.red, "Test Run Failed" )
                 |> finished duration passed failures
                 |> summarize failures
 
