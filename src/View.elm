@@ -21,7 +21,7 @@ view model =
                 |> summarize []
 
         Just ( duration, Runner.Todo passed failures ) ->
-            ( palette.yellow, "Test Run Incomplete" )
+            ( palette.yellow, "Test Run Incomplete: TODO's remaining" )
                 |> finished duration passed failures
                 |> summarize failures
 
@@ -41,7 +41,7 @@ view model =
                 |> summarize []
 
         Just ( duration, Runner.Fail passed failures ) ->
-            ( palette.green, "Test Run Passed" )
+            ( palette.green, "Test Run Failed" )
                 |> finished duration passed failures
                 |> summarize failures
 
