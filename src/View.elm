@@ -26,14 +26,17 @@ view model =
                 |> summarize failures
 
         Just ( duration, Runner.AutoFail passed Runner.Only ) ->
-            ( palette.yellow
-            , "Test Run Incomplete: Test.only was used"
-            )
+            ( palette.yellow, "Test Run Incomplete: Test.only was used" )
                 |> finished duration passed []
                 |> summarize []
 
         Just ( duration, Runner.AutoFail passed Runner.Skip ) ->
             ( palette.yellow, "Test Run Incomplete: Test.skip was used" )
+                |> finished duration passed []
+                |> summarize []
+
+        Just ( duration, Runner.AutoFail passed (Runner.Custom reason) ) ->
+            ( palette.yellow, "Test Run Incomplete: " ++ reason )
                 |> finished duration passed []
                 |> summarize []
 

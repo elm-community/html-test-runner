@@ -42,8 +42,8 @@ type Status
 
 type Reason
     = Skip
-      -- | Custom String
     | Only
+    | Custom String
 
 
 type alias Failure =
@@ -72,8 +72,8 @@ fromTest runs seed test =
         Test.Runner.Skipping queue ->
             new queue (Just Skip)
 
-        Test.Runner.Invalid _ ->
-            Debug.crash "Invalid"
+        Test.Runner.Invalid reason ->
+            new [] (Just (Custom reason))
 
 
 step : Runner -> Status

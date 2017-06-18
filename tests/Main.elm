@@ -24,12 +24,8 @@ suite =
                         ( 10
                         , Runner.Fail 0
                             [ ( []
-                              , [ { given =
-                                        Nothing
-                                  , message =
-                                        "This `describe \"nothing\"` "
-                                            ++ "has no tests in it. "
-                                            ++ "Let's give it some!"
+                              , [ { given = Nothing
+                                  , message = .noTests Fixtures.description
                                   }
                                 ]
                               )
@@ -113,6 +109,17 @@ suite =
                 |- App.update (App.Dispatch 5)
                 |- App.update (App.Dispatch 99)
                 |== Just ( 94, Runner.AutoFail 0 Runner.Skip )
+    , test "invalid test shows custom reason" <|
+        \_ ->
+            App.init 0 Nothing (describe "asdf" [])
+                |- App.update (App.Dispatch 5)
+                |== Just
+                        ( 0
+                        , Fixtures.description
+                            |> .invalid
+                            |> Runner.Custom
+                            |> Runner.AutoFail 0
+                        )
     ]
         |> describe "Test.Runner.Html.App"
 
