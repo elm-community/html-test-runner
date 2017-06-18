@@ -22,7 +22,7 @@ suite =
                 |== View.Running
                         { completed = 0
                         , remaining = 1
-                        , outcome = Outcome.Pass
+                        , status = Outcome.Pass
                         }
     , test "fails when describe has no tests" <|
         \_ ->
@@ -33,8 +33,8 @@ suite =
                 |== View.Finished
                         { duration = 5
                         , passed = 0
-                        , outcome =
-                            Outcome.Fail
+                        , status =
+                            Outcome.Fail Outcome.Normal
                                 [ ( []
                                   , [ { given =
                                             Nothing
@@ -57,7 +57,7 @@ suite =
                 |== View.Finished
                         { duration = 10
                         , passed = 1
-                        , outcome = Outcome.Pass
+                        , status = Outcome.Pass
                         }
     , test "increments test counter" <|
         \_ ->
@@ -67,7 +67,7 @@ suite =
                 |== View.Running
                         { completed = 1
                         , remaining = 1
-                        , outcome = Outcome.Pass
+                        , status = Outcome.Pass
                         }
     , test "captures failures" <|
         \_ ->
@@ -78,10 +78,13 @@ suite =
                 |== View.Running
                         { completed = 2
                         , remaining = 0
-                        , outcome =
-                            Outcome.Fail
+                        , status =
+                            Outcome.Fail Outcome.Normal
                                 [ ( [ "two", "both" ]
-                                  , [ { given = Nothing, message = "message" } ]
+                                  , [ { given = Nothing
+                                      , message = "message"
+                                      }
+                                    ]
                                   )
                                 ]
                         }
@@ -94,10 +97,13 @@ suite =
                 |== View.Running
                         { completed = 2
                         , remaining = 0
-                        , outcome =
-                            Outcome.Fail
+                        , status =
+                            Outcome.Fail Outcome.Normal
                                 [ ( [ "done", "todo then failing" ]
-                                  , [ { given = Nothing, message = "just cause" } ]
+                                  , [ { given = Nothing
+                                      , message = "just cause"
+                                      }
+                                    ]
                                   )
                                 ]
                         }
@@ -110,12 +116,27 @@ suite =
                 |== View.Running
                         { completed = 2
                         , remaining = 0
-                        , outcome =
-                            Outcome.Todo
+                        , status =
+                            Outcome.Fail Outcome.Todo
                                 [ ( [ "todo then passing" ]
-                                  , [ { given = Nothing, message = "haven't done this yet" } ]
+                                  , [ { given = Nothing
+                                      , message = "haven't done this yet"
+                                      }
+                                    ]
                                   )
                                 ]
+                        }
+    , test "shows only in isolation" <|
+        \_ ->
+            init Fixtures.onlyPassing
+                |- App.Start 5
+                |- App.Dispatch
+                |- App.Dispatch
+                |- App.Finish 99
+                |== View.Finished
+                        { passed = 1
+                        , duration = 94
+                        , status = Outcome.Fail Outcome.Only []
                         }
     ]
         |> describe "Test.Runner.Html.App"

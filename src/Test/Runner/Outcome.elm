@@ -1,60 +1,99 @@
 module Test.Runner.Outcome
     exposing
-        ( Outcome(..)
+        ( Outcome
+        , Status(..)
+        , Reason(..)
         , Failure
-        , mapFailure
-        , countFailures
-        , run
+        , fromTest
+        , status
+        , remaining
+        , passed
+        , step
         )
 
+import Test exposing (Test)
 import Test.Runner exposing (Runner)
 import Expect exposing (Expectation)
+import Random.Pcg as Random
+
+
+type Outcome
+    = Outcome
+        { passed : Int
+        , runners : List Runner
+        , status : Status
+        }
+
+
+type Status
+    = Pass
+    | Fail Reason (List Failure)
+
+
+type Reason
+    = Normal
+    | Todo
+    | Only
+    | Skip
 
 
 type alias Failure =
     ( List String, List { given : Maybe String, message : String } )
 
 
-type Outcome
-    = Pass
-    | Todo (List Failure)
-    | Fail (List Failure)
+fromTest : Int -> Random.Seed -> Test -> Outcome
+fromTest runs seed test =
+    case Test.Runner.fromTest runs seed test of
+        Test.Runner.Plain runners ->
+            Outcome { passed = 0, runners = runners, status = Pass }
+
+        Test.Runner.Only runners ->
+            Outcome { passed = 0, runners = runners, status = Fail Only [] }
+
+        Test.Runner.Skipping runners ->
+            Outcome { passed = 0, runners = runners, status = Pass }
+
+        Test.Runner.Invalid _ ->
+            Outcome { passed = 0, runners = [], status = Pass }
 
 
-mapFailure : (Failure -> a) -> Outcome -> List a
-mapFailure f outcome =
-    case outcome of
-        Pass ->
-            []
-
-        Todo failures ->
-            List.map f failures
-
-        Fail failures ->
-            List.map f failures
+status : Outcome -> Status
+status (Outcome outcome) =
+    outcome.status
 
 
-countFailures : Outcome -> Int
-countFailures outcome =
-    case outcome of
-        Pass ->
-            0
-
-        Todo failures ->
-            List.length failures
-
-        Fail failures ->
-            List.length failures
+remaining : Outcome -> Int
+remaining (Outcome outcome) =
+    List.length outcome.runners
 
 
-run : Runner -> Outcome -> Outcome
-run runner =
-    runner.run ()
-        |> fromExpectation runner.labels
-        |> append
+passed : Outcome -> Int
+passed (Outcome outcome) =
+    outcome.passed
 
 
-fromExpectation : List String -> List Expect.Expectation -> Outcome
+step : Outcome -> Outcome
+step (Outcome outcome) =
+    case outcome.runners of
+        [] ->
+            Outcome outcome
+
+        next :: queue ->
+            next.run ()
+                |> fromExpectation next.labels
+                |> \status ->
+                    Outcome
+                        { runners = queue
+                        , status = append outcome.status status
+                        , passed =
+                            if status == Pass then
+                                1 + outcome.passed
+                            else
+                                outcome.passed
+                        }
+
+
+fromExpectation : List String -> List Expect.Expectation -> Status
 fromExpectation labels expectations =
     let
         ( todos, failures ) =
@@ -74,28 +113,37 @@ fromExpectation labels expectations =
         if List.isEmpty failures && List.isEmpty todos then
             Pass
         else if List.isEmpty failures then
-            Todo [ ( labels, todos ) ]
+            Fail Todo [ ( labels, todos ) ]
         else
-            Fail [ ( labels, failures ) ]
+            Fail Normal [ ( labels, failures ) ]
 
 
-append : Outcome -> Outcome -> Outcome
-append new old =
-    case ( new, old ) of
-        ( Pass, _ ) ->
-            old
+append : Status -> Status -> Status
+append old new =
+    case ( old, new ) of
+        ( Pass, Pass ) ->
+            Pass
 
-        ( _, Pass ) ->
+        ( Pass, Fail _ _ ) ->
             new
 
-        ( Fail _, Todo _ ) ->
-            new
-
-        ( Todo _, Fail _ ) ->
+        ( Fail _ _, Pass ) ->
             old
 
-        ( Fail newMessages, Fail oldMessages ) ->
-            Fail (oldMessages ++ newMessages)
+        ( Fail Normal oldMessages, Fail Normal newMessages ) ->
+            Fail Normal (oldMessages ++ newMessages)
 
-        ( Todo newMessages, Todo oldMessages ) ->
-            Todo (oldMessages ++ newMessages)
+        ( Fail Todo oldMessages, Fail Todo newMessages ) ->
+            Fail Todo (oldMessages ++ newMessages)
+
+        ( Fail Only oldMessages, Fail Only newMessages ) ->
+            Fail Only (oldMessages ++ newMessages)
+
+        ( Fail Skip oldMessages, Fail Skip newMessages ) ->
+            Fail Skip (oldMessages ++ newMessages)
+
+        ( Fail _ _, Fail Normal _ ) ->
+            new
+
+        ( Fail _ _, Fail _ _ ) ->
+            old

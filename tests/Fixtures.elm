@@ -45,3 +45,8 @@ twoTests () =
         [ test "one" (\_ -> Expect.pass)
         , test "two" (\_ -> Expect.fail "message")
         ]
+
+
+onlyPassing : Fixture
+onlyPassing () =
+    only <| test "this passes" (\_ -> Expect.pass)

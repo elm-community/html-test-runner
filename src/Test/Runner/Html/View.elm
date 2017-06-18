@@ -1,10 +1,18 @@
 module Test.Runner.Html.View exposing (..)
 
 import Time exposing (Time)
-import Test.Runner.Outcome exposing (Outcome)
+import Test.Runner.Outcome as Outcome
 
 
 type Model
     = NotStarted
-    | Running { completed : Int, remaining : Int, outcome : Outcome }
-    | Finished { duration : Time, passed : Int, outcome : Outcome }
+    | Running
+        { completed : Int
+        , remaining : Int
+        , status : Outcome.Status
+        }
+    | Finished
+        { duration : Time
+        , passed : Int
+        , status : Outcome.Status
+        }

@@ -7,9 +7,8 @@ module Test.Runner.Html.App
         , present
         )
 
-import Time exposing (Time)
 import Task
-import Tuple
+import Time exposing (Time)
 import Random.Pcg as Random
 import Expect exposing (Expectation)
 import Test exposing (Test)
@@ -26,14 +25,13 @@ type Msg
 
 type Model
     = NotStarted (Maybe Random.Seed) Int Test
-    | Running (List Runner.Runner) State
+    | Running State
     | Finished Time State
 
 
 type alias State =
     { completed : Int
     , startTime : Time
-    , finishTime : Maybe Time
     , outcome : Outcome.Outcome
     }
 
@@ -55,17 +53,13 @@ now msg =
 start : Int -> Time -> Test -> Random.Seed -> ( Model, Cmd Msg )
 start runs time test seed =
     let
-        thunks =
-            Runner.fromTest runs seed test |> extractRunners
-
         state =
             { completed = 0
             , startTime = time
-            , finishTime = Nothing
-            , outcome = Outcome.Pass
+            , outcome = Outcome.fromTest runs seed test
             }
     in
-        ( Running thunks state, dispatch )
+        ( Running state, dispatch )
 
 
 init : Int -> Maybe Random.Seed -> Test -> ( Model, Cmd Msg )
@@ -84,20 +78,20 @@ update msg model =
         ( Start time, NotStarted (Just seed) runs test ) ->
             start runs time test seed
 
-        ( Finish time, Running _ state ) ->
+        ( Finish time, Running state ) ->
             ( Finished time state, Cmd.none )
 
-        ( Dispatch, Running [] state ) ->
-            ( Running [] state, now Finish )
-
-        ( Dispatch, Running (runner :: queue) state ) ->
-            ( Running queue
-                { state
-                    | outcome = Outcome.run runner state.outcome
-                    , completed = state.completed + 1
-                }
-            , dispatch
-            )
+        ( Dispatch, Running state ) ->
+            if Outcome.remaining state.outcome == 0 then
+                ( model, now Finish )
+            else
+                ( Running
+                    { state
+                        | outcome = Outcome.step state.outcome
+                        , completed = state.completed + 1
+                    }
+                , dispatch
+                )
 
         ( Start _, _ ) ->
             Debug.crash "Attempted to start twice!"
@@ -118,26 +112,16 @@ present model =
         NotStarted _ _ _ ->
             View.NotStarted
 
-        Running queue state ->
+        Running state ->
             View.Running
                 { completed = state.completed
-                , remaining = List.length queue
-                , outcome = state.outcome
+                , remaining = Outcome.remaining state.outcome
+                , status = Outcome.status state.outcome
                 }
 
         Finished finishTime state ->
             View.Finished
                 { duration = finishTime - state.startTime
-                , passed = state.completed - Outcome.countFailures state.outcome
-                , outcome = state.outcome
+                , passed = Outcome.passed state.outcome
+                , status = Outcome.status state.outcome
                 }
-
-
-extractRunners : Runner.SeededRunners -> List Runner.Runner
-extractRunners seeded =
-    case seeded of
-        Runner.Plain runners ->
-            runners
-
-        _ ->
-            Debug.crash "TODO: implement other runners"

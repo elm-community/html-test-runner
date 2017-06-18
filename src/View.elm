@@ -15,16 +15,16 @@ view model =
         View.NotStarted ->
             text ""
 
-        View.Running { completed, remaining, outcome } ->
-            running completed remaining outcome
+        View.Running { completed, remaining, status } ->
+            running completed remaining status
 
-        View.Finished { duration, passed, outcome } ->
-            finished duration passed outcome
+        View.Finished { duration, passed, status } ->
+            finished duration passed status
 
 
-running : Int -> Int -> Outcome.Outcome -> Html a
-running completed remaining outcome =
-    summarize outcome <|
+running : Int -> Int -> Outcome.Status -> Html a
+running completed remaining status =
+    summarize status <|
         div []
             [ h2 [] [ text "Running Tests..." ]
             , div [] [ text (toString completed ++ " completed") ]
@@ -32,19 +32,19 @@ running completed remaining outcome =
             ]
 
 
-finished : Time -> Int -> Outcome.Outcome -> Html a
-finished duration passed outcome =
+finished : Time -> Int -> Outcome.Status -> Html a
+finished duration passed status =
     let
         ( headlineColor, headlineText ) =
-            if outcome == Outcome.Pass then
-                ( "darkgreen", "Outcome Run Passed" )
+            if status == Outcome.Pass then
+                ( "darkgreen", "Test Run Passed" )
             else
-                ( "hsla(3, 100%, 40%, 1.0)", "Outcome Run Failed" )
+                ( "hsla(3, 100%, 40%, 1.0)", "Test Run Failed" )
 
         thStyle =
             [ ( "text-align", "left" ), ( "padding-right", "10px" ) ]
     in
-        summarize outcome <|
+        summarize status <|
             div []
                 [ h2 [ style [ ( "color", headlineColor ) ] ]
                     [ text headlineText ]
@@ -66,7 +66,14 @@ finished duration passed outcome =
                             [ th [ style thStyle ]
                                 [ text "Failed" ]
                             , td []
-                                [ text <| toString <| Outcome.countFailures outcome
+                                [ text <|
+                                    toString <|
+                                        case status of
+                                            Outcome.Pass ->
+                                                0
+
+                                            Outcome.Fail _ failures ->
+                                                List.length failures
                                 ]
                             ]
                         ]
@@ -74,16 +81,22 @@ finished duration passed outcome =
                 ]
 
 
-summarize : Outcome.Outcome -> Html a -> Html a
-summarize outcome content =
+summarize : Outcome.Status -> Html a -> Html a
+summarize status content =
     div [ style [ ( "width", "960px" ), ( "margin", "auto 40px" ), ( "font-family", "verdana, sans-serif" ) ] ]
         [ content
-        , ol [ class "results", resultsStyle ] (Outcome.mapFailure viewFailGroup outcome)
+        , ol [ class "results", resultsStyle ] <|
+            case status of
+                Outcome.Pass ->
+                    []
+
+                Outcome.Fail _ failures ->
+                    List.map viewFailure failures
         ]
 
 
-viewFailGroup : Outcome.Failure -> Html a
-viewFailGroup ( labels, expectations ) =
+viewFailure : Outcome.Failure -> Html a
+viewFailure ( labels, expectations ) =
     let
         inContext { given, message } =
             div []
