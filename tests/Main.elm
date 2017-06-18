@@ -8,60 +8,19 @@ import Test.Runner.Html
 import Test.Runner.Html.App as App
 import Test.Runner.Html.View as View
 import Test.Runner.Outcome as Outcome
-
-
--- FIXTURES
-
-
-type alias Fixture =
-    () -> Test
-
-
-noTests : Fixture
-noTests () =
-    describe "nothing" []
-
-
-todoWithFailingTest : Fixture
-todoWithFailingTest () =
-    describe "todo then passing"
-        [ test "done" (\_ -> Expect.fail "just cause")
-        , todo "haven't done this yet"
-        ]
-
-
-oneTest : Fixture
-oneTest () =
-    describe "a"
-        [ describe "very"
-            [ describe "nested"
-                [ test "test" (\_ -> Expect.equal 1 1) ]
-            ]
-        ]
-
-
-twoTests : Fixture
-twoTests () =
-    describe "both"
-        [ test "one" (\_ -> Expect.pass)
-        , test "two" (\_ -> Expect.fail "message")
-        ]
-
-
-
--- REAL TESTS
+import Fixtures
 
 
 suite : Test
 suite =
     [ test "shows nothing on init" <|
         \_ ->
-            init noTests
+            init Fixtures.noTests
                 |== View.NotStarted
     , test "no tests has one (failure) expectation" <|
         \_ ->
-            init noTests
-                |- App.update (App.Start 5)
+            init Fixtures.noTests
+                |- App.Start 5
                 |== View.Running
                         { completed = 0
                         , remaining = 1
@@ -69,10 +28,10 @@ suite =
                         }
     , test "fails when describe has no tests" <|
         \_ ->
-            init noTests
-                |- App.update (App.Start 5)
-                |- App.update App.Dispatch
-                |- App.update (App.Finish 10)
+            init Fixtures.noTests
+                |- App.Start 5
+                |- App.Dispatch
+                |- App.Finish 10
                 |== View.Finished
                         { duration = 5
                         , passed = 0
@@ -92,11 +51,11 @@ suite =
                         }
     , test "passing one nested test" <|
         \_ ->
-            init oneTest
-                |- App.update (App.Start 5)
-                |- App.update App.Dispatch
-                |- App.update App.Dispatch
-                |- App.update (App.Finish 15)
+            init Fixtures.oneTest
+                |- App.Start 5
+                |- App.Dispatch
+                |- App.Dispatch
+                |- App.Finish 15
                 |== View.Finished
                         { duration = 10
                         , passed = 1
@@ -104,9 +63,9 @@ suite =
                         }
     , test "increments test counter" <|
         \_ ->
-            init twoTests
-                |- App.update (App.Start 5)
-                |- App.update App.Dispatch
+            init Fixtures.twoTests
+                |- App.Start 5
+                |- App.Dispatch
                 |== View.Running
                         { completed = 1
                         , remaining = 1
@@ -114,10 +73,10 @@ suite =
                         }
     , test "captures failures" <|
         \_ ->
-            init twoTests
-                |- App.update (App.Start 5)
-                |- App.update App.Dispatch
-                |- App.update App.Dispatch
+            init Fixtures.twoTests
+                |- App.Start 5
+                |- App.Dispatch
+                |- App.Dispatch
                 |== View.Running
                         { completed = 2
                         , remaining = 0
@@ -130,10 +89,10 @@ suite =
                         }
     , test "doesn't show todo with failure" <|
         \_ ->
-            init todoWithFailingTest
-                |- App.update (App.Start 5)
-                |- App.update App.Dispatch
-                |- App.update App.Dispatch
+            init Fixtures.todoWithFailingTest
+                |- App.Start 5
+                |- App.Dispatch
+                |- App.Dispatch
                 |== View.Running
                         { completed = 2
                         , remaining = 0
@@ -162,11 +121,11 @@ init f =
     App.init 100 Nothing (f ())
 
 
-{-| Extract first tuple element then map. Useful for piping update functions!
+{-| Extract Model then update it.
 -}
-(|-) : ( a, b ) -> (a -> c) -> c
-(|-) ( a, _ ) f =
-    f a
+(|-) : ( App.Model, a ) -> App.Msg -> ( App.Model, Cmd App.Msg )
+(|-) ( model, _ ) msg =
+    App.update msg model
 infixl 0 |-
 
 
