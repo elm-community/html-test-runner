@@ -13,7 +13,8 @@ view : View.Model -> Html a
 view model =
     case model of
         Nothing ->
-            text ""
+            h2 [] [ text "Loading Tests..." ]
+                |> summarize []
 
         Just ( duration, Runner.Pass passed ) ->
             ( palette.green, "Test Run Passed" )

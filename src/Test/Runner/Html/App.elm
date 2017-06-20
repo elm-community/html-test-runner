@@ -8,6 +8,7 @@ module Test.Runner.Html.App
         )
 
 import Expect exposing (Expectation)
+import Process
 import Random.Pcg as Random
 import Task
 import Test exposing (Test)
@@ -27,7 +28,9 @@ type Msg
 
 dispatch : Cmd Msg
 dispatch =
-    Task.perform Dispatch Time.now
+    Process.sleep 0
+        |> Task.andThen (\_ -> Time.now)
+        |> Task.perform Dispatch
 
 
 start : Int -> Test -> Random.Seed -> Runner.Status
