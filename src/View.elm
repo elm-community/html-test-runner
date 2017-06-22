@@ -3,7 +3,6 @@ module View exposing (view)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import String
-import Test.Runner
 import Test.Runner.Exploration as Runner
 import Test.Runner.Html.View as View
 import Time exposing (Time)
@@ -110,29 +109,28 @@ summarize failures content =
 
 
 viewFailure : Runner.Failure -> Html a
-viewFailure ( labels, expectations ) =
+viewFailure failure =
     let
+        ( labels, expectations ) =
+            Runner.formatFailure
+                (withColorChar '↓' palette.gray)
+                (withColorChar '✗' palette.red)
+                failure
+
         inContext { given, message } =
             div []
-                [ case given of
-                    Nothing ->
-                        text ""
-
-                    Just value ->
-                        pre givenAttributes [ text ("Given " ++ value) ]
+                [ Maybe.withDefault (text "") (Maybe.map viewGiven given)
                 , pre messageAttributes [ text message ]
                 ]
     in
     li
         [ style [ ( "margin", "40px 0" ) ] ]
-        (viewLabels labels ++ List.map inContext expectations)
+        (labels ++ List.map inContext expectations)
 
 
-viewLabels : List String -> List (Html a)
-viewLabels =
-    Test.Runner.formatLabels
-        (withColorChar '↓' palette.gray)
-        (withColorChar '✗' palette.red)
+viewGiven : String -> Html a
+viewGiven value =
+    pre givenAttributes [ text ("Given " ++ value) ]
 
 
 givenAttributes : List (Html.Attribute a)

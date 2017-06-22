@@ -4,6 +4,7 @@ module Test.Runner.Exploration
         , Reason(..)
         , Runner
         , Status(..)
+        , formatFailure
         , fromTest
         , step
         )
@@ -46,8 +47,8 @@ type Reason
     | Custom String
 
 
-type alias Failure =
-    ( List String, List { given : Maybe String, message : String } )
+type Failure
+    = Failure (List String) (List { given : Maybe String, message : String })
 
 
 fromTest : Int -> Random.Pcg.Seed -> Test.Test -> Runner
@@ -74,6 +75,15 @@ fromTest runs seed test =
 
         Test.Runner.Invalid reason ->
             new [] (Just (Custom reason))
+
+
+formatFailure :
+    (String -> a)
+    -> (String -> a)
+    -> Failure
+    -> ( List a, List { given : Maybe String, message : String } )
+formatFailure formatFirst formatLast (Failure labels errors) =
+    ( Test.Runner.formatLabels formatFirst formatLast labels, errors )
 
 
 step : Runner -> Status
@@ -108,16 +118,16 @@ fromExpectation internals labels expectations =
         ( todos, failures ) =
             List.foldr partition ( [], [] ) expectations
 
-        partition e old =
+        partition e =
             case ( Test.Runner.isTodo e, Test.Runner.getFailure e ) of
                 ( True, Just result ) ->
-                    Tuple.mapFirst ((::) result) old
+                    Tuple.mapFirst ((::) result)
 
                 ( False, Just result ) ->
-                    Tuple.mapSecond ((::) result) old
+                    Tuple.mapSecond ((::) result)
 
                 ( _, Nothing ) ->
-                    old
+                    identity
     in
     if List.isEmpty failures && List.isEmpty todos then
         toRunning
@@ -127,12 +137,12 @@ fromExpectation internals labels expectations =
     else if List.isEmpty failures then
         toRunning
             { internals
-                | todos = internals.todos ++ [ ( labels, todos ) ]
+                | todos = internals.todos ++ [ Failure labels todos ]
             }
     else
         toRunning
             { internals
-                | failures = internals.failures ++ [ ( labels, failures ) ]
+                | failures = internals.failures ++ [ Failure labels failures ]
             }
 
 
