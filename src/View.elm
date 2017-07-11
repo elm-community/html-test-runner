@@ -37,7 +37,10 @@ type TestColor
 
 palette =
     { primary = rgb 41 60 75
-    , secondary = rgb 84 84 84 -- gray color on elm blog is rgb 221 221 221 but it doesn't meet accessibility standards for contrast http://webaim.org/resources/contrastchecker/
+    , secondary = rgb 84 84 84
+
+    -- gray color on elm blog is rgb 221 221 221 but it doesn't meet
+    -- accessibility standards for contrast http://webaim.org/resources/contrastchecker/
     , accent = rgb 96 181 204
     , background = rgb 255 255 255
     }
@@ -180,15 +183,17 @@ finished duration passed failures ( headlineColor, headlineText ) =
         [ row TestHeader [] [ header (text headlineText) ]
         , row None
             []
-            [ grid TestResult
-                { rows = [], columns = [] }
+            [ table TestResult
                 [ spacing 10 ]
-                [ area { start = ( 0, 0 ), width = 1, height = 1 } (bold "Duration")
-                , area { start = ( 1, 0 ), width = 1, height = 1 } (text (formatDuration duration))
-                , area { start = ( 0, 1 ), width = 1, height = 1 } (bold "Passed")
-                , area { start = ( 1, 1 ), width = 1, height = 1 } (text (toString passed))
-                , area { start = ( 0, 2 ), width = 1, height = 1 } (bold "Failed")
-                , area { start = ( 1, 2 ), width = 1, height = 1 } (text (toString (List.length failures)))
+                [ [ bold "Duration"
+                  , text (formatDuration duration)
+                  ]
+                , [ bold "Passed"
+                  , text (toString passed)
+                  ]
+                , [ bold "Failed"
+                  , text (toString (List.length failures))
+                  ]
                 ]
             ]
         ]
@@ -203,30 +208,12 @@ summarize failures summary =
         ]
 
 
+viewFailures : List Runner.Failure -> Element Styles variation msg
 viewFailures failures =
     list Ordered
         None
         []
         (List.map viewFailure failures)
-
-
-type Ordered
-    = Ordered
-    | Unordered
-
-
-list : Ordered -> Styles -> List (Element.Attribute variation msg) -> List (Element Styles variation msg) -> Element Styles variation msg
-list ordered style attrs els =
-    let
-        elements =
-            List.map (node "li") els
-    in
-    case ordered of
-        Ordered ->
-            node "ol" (column None [] elements)
-
-        Unordered ->
-            node "ul" (column None [] elements)
 
 
 viewFailure : Runner.Failure -> Element Styles variations msg
@@ -250,8 +237,8 @@ viewFailure failure =
         (labels ++ List.map inContext expectations)
 
 
-code style attrs str =
-    node "pre" (el style attrs (text str))
+
+-- HELPERS
 
 
 viewGiven : String -> Element Styles variations msg
@@ -269,3 +256,31 @@ withTestColor char textColor str =
 formatDuration : Time -> String
 formatDuration time =
     toString time ++ " ms"
+
+
+
+-- STYLE ELEMENTS HELPERS
+
+
+type Ordered
+    = Ordered
+    | Unordered
+
+
+list : Ordered -> Styles -> List (Element.Attribute variation msg) -> List (Element Styles variation msg) -> Element Styles variation msg
+list ordered style attrs els =
+    let
+        elements =
+            List.map (node "li") els
+    in
+    case ordered of
+        Ordered ->
+            node "ol" (column None [] elements)
+
+        Unordered ->
+            node "ul" (column None [] elements)
+
+
+code : style -> List (Element.Attribute variations msg) -> String -> Element style variations msg
+code style attrs str =
+    node "pre" <| el style attrs (text str)
