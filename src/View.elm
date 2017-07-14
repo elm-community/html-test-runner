@@ -1,15 +1,13 @@
 module View exposing (view)
 
-import Color exposing (rgb)
+import Color exposing (Color, rgb)
 import Element exposing (..)
 import Element.Attributes exposing (..)
 import Html exposing (Html)
 import String
 import Style exposing (..)
-import Style.Border as Border
 import Style.Color as Color
 import Style.Font as Font
-import Style.Transition as Transition
 import Test.Runner.Exploration as Runner
 import Test.Runner.Html.View as View
 import Time exposing (Time)
@@ -35,6 +33,15 @@ type TestColor
     | TodoColor
 
 
+type alias Palette =
+    { primary : Color
+    , secondary : Color
+    , accent : Color
+    , background : Color
+    }
+
+
+palette : Palette
 palette =
     { primary = rgb 41 60 75
     , secondary = rgb 84 84 84
@@ -71,8 +78,7 @@ stylesheet =
             ]
         , style TestSummary
             [ paddingHint 2 ]
-        , style TestPanel
-            []
+        , style TestPanel []
         , style Tests []
         , style (ColoredText FailColor) [ Color.text Color.red ]
         , style (ColoredText SucceedColor) [ Color.text Color.green ]
@@ -81,28 +87,7 @@ stylesheet =
         ]
 
 
-
---
--- resultsStyle : Html.Attribute a
--- resultsStyle =
---     style
---         [ ( "font-size", "14px" )
---         , ( "line-height", "1.3" )
---         , ( "font-family", "Menlo, Consolas, \"Fira Mono\", \"DejaVu Sans Mono\", \"Liberation Monospace\", \"Liberation Mono\", Monaco, \"Lucida Console\", \"Courier New\", monospace" )
---         ]
--- messageAttributes : List (Html.Attribute a)
--- messageAttributes =
---     [ width 80
---     , style
---         [ ( "margin-left", "32px" )
---         , ( "margin-bottom", "40px" )
---         , ( "font-size", "inherit" )
---         , ( "font-family", "inherit" )
---         ]
---     ]
---
-
-
+appContainer : Element Styles variations msg -> Element Styles variations msg
 appContainer tests =
     column Main
         [ height (fill 1) ]
@@ -115,6 +100,7 @@ appContainer tests =
         ]
 
 
+topBorder : Element Styles variations msg
 topBorder =
     el TopBorder [] Element.empty
 
@@ -185,13 +171,9 @@ finished duration passed failures ( headlineColor, headlineText ) =
             []
             [ table TestResult
                 [ spacing 10 ]
-                [ [ bold "Duration"
-                  , text (formatDuration duration)
-                  ]
-                , [ bold "Passed"
+                [ [ bold "Duration", bold "Passed", bold "Failed" ]
+                , [ text (formatDuration duration)
                   , text (toString passed)
-                  ]
-                , [ bold "Failed"
                   , text (toString (List.length failures))
                   ]
                 ]
@@ -202,9 +184,9 @@ finished duration passed failures ( headlineColor, headlineText ) =
 summarize : List Runner.Failure -> Element Styles variation msg -> Element Styles variation msg
 summarize failures summary =
     column TestPanel
-        []
-        [ row None [] [ summary ]
-        , row None [] [ viewFailures failures ]
+        [ padding 10, maxWidth (px 700) ]
+        [ wrappedRow None [] [ summary ]
+        , wrappedRow None [] [ viewFailures failures ]
         ]
 
 
@@ -228,13 +210,17 @@ viewFailure failure =
         inContext { given, message } =
             column None
                 []
-                [ Maybe.withDefault Element.empty (Maybe.map viewGiven given)
-                , code None [] message
+                [ wrappedRow None [] [ Maybe.withDefault Element.empty (Maybe.map viewGiven given) ]
+                , wrappedRow None [] [ code None [ inlineStyle [ ( "white-space", "pre-wrap" ) ] ] message ]
                 ]
     in
-    row None
-        []
-        (labels ++ List.map inContext expectations)
+    el None
+        [ inlineStyle [ ( "display", "list-item" ), ( "margin", "10px" ), ( "padding", "10px" ) ]
+        ]
+        (column None
+            [ spacing 5 ]
+            (labels ++ List.map inContext expectations)
+        )
 
 
 
@@ -243,7 +229,7 @@ viewFailure failure =
 
 viewGiven : String -> Element Styles variations msg
 viewGiven value =
-    code GivenCode [] ("Given " ++ value)
+    code GivenCode [ inlineStyle [ ( "white-space", "pre-wrap" ) ] ] ("Given " ++ value)
 
 
 withTestColor : Char -> TestColor -> String -> Element Styles variation msg
@@ -275,10 +261,10 @@ list ordered style attrs els =
     in
     case ordered of
         Ordered ->
-            node "ol" (column None [] elements)
+            node "ol" (column None [ inlineStyle [ ( "display", "block" ), ( "margin", "10px" ), ( "padding", "10px" ) ] ] elements)
 
         Unordered ->
-            node "ul" (column None [] elements)
+            node "ul" (column None [ inlineStyle [ ( "display", "block" ), ( "margin", "10px" ), ( "padding", "10px" ) ] ] elements)
 
 
 code : style -> List (Element.Attribute variations msg) -> String -> Element style variations msg
