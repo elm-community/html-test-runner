@@ -2,60 +2,58 @@ module Main exposing (..)
 
 import Expect
 import Fixtures
+import Random.Pcg as Random
 import Test exposing (..)
-import Test.Runner.Exploration as Runner
+import Test.Runner.Exploration as Runner exposing (Runner)
 import Test.Runner.Html
-import Test.Runner.Html.App as App
 import Test.Runner.Html.View as View
 
 
 suite : Test
 suite =
-    [ test "shows nothing on init" <|
+    [ test "fails when describe has no tests" <|
         \_ ->
-            init Fixtures.noTests
-                |== Nothing
-    , test "fails when describe has no tests" <|
-        \_ ->
-            init Fixtures.noTests
-                |- App.update (App.Dispatch 5)
-                |- App.update (App.Dispatch 15)
-                |== Just
-                        ( 10
-                        , Runner.Fail 0
-                            [ ( []
-                              , [ { given = Nothing
-                                  , message = .noTests Fixtures.description
-                                  }
-                                ]
-                              )
+            run Fixtures.noTests
+                |> expect
+                    { steps = 2
+                    , passed = 0
+                    , status = "Fail"
+                    , failures =
+                        [ ( []
+                          , [ { given = Nothing
+                              , message = Fixtures.noTestsDescription
+                              }
                             ]
-                        )
+                          )
+                        ]
+                    }
     , test "passing one nested test" <|
         \_ ->
-            init Fixtures.oneTest
-                |- App.update (App.Dispatch 5)
-                |- App.update (App.Dispatch 15)
-                |== Just ( 10, Runner.Pass 1 )
+            run Fixtures.oneTest
+                |> expect
+                    { steps = 2
+                    , passed = 1
+                    , status = "Pass"
+                    , failures = []
+                    }
     , test "increments test counter" <|
         \_ ->
-            init Fixtures.twoTests
-                |- App.update (App.Dispatch 5)
-                |- expectRunning
-                    { passed = 1
-                    , remaining = 1
+            run Fixtures.twoTests
+                |> expect
+                    { steps = 1
+                    , passed = 1
+                    , status = "Running"
                     , failures = []
                     }
     , test "captures failures" <|
         \_ ->
-            init Fixtures.twoTests
-                |- App.update (App.Dispatch 5)
-                |- App.update (App.Dispatch 6)
-                |- expectRunning
-                    { passed = 1
-                    , remaining = 0
+            run Fixtures.twoTests
+                |> expect
+                    { steps = 2
+                    , passed = 1
+                    , status = "Running"
                     , failures =
-                        [ ( [ "two", "both" ]
+                        [ ( [ "both", "two" ]
                           , [ { given = Nothing
                               , message = "message"
                               }
@@ -65,63 +63,65 @@ suite =
                     }
     , test "doesn't show todo with failure" <|
         \_ ->
-            init Fixtures.todoWithFailingTest
-                |- App.update (App.Dispatch 5)
-                |- App.update (App.Dispatch 6)
-                |- App.update (App.Dispatch 7)
-                |== Just
-                        ( 2
-                        , Runner.Fail 0
-                            [ ( [ "done", "todo then failing" ]
-                              , [ { given = Nothing
-                                  , message = "just cause"
-                                  }
-                                ]
-                              )
+            run Fixtures.todoWithFailingTest
+                |> expect
+                    { steps = 3
+                    , passed = 0
+                    , status = "Fail"
+                    , failures =
+                        [ ( [ "todo then failing", "done" ]
+                          , [ { given = Nothing
+                              , message = "just cause"
+                              }
                             ]
-                        )
+                          )
+                        ]
+                    }
     , test "shows todo with passing" <|
         \_ ->
-            init Fixtures.todoWithPassingTest
-                |- App.update (App.Dispatch 5)
-                |- App.update (App.Dispatch 6)
-                |- App.update (App.Dispatch 7)
-                |== Just
-                        ( 2
-                        , Runner.Todo 1
-                            [ ( [ "todo then passing" ]
-                              , [ { given = Nothing
-                                  , message = "haven't done this yet"
-                                  }
-                                ]
-                              )
+            run Fixtures.todoWithPassingTest
+                |> expect
+                    { steps = 3
+                    , passed = 1
+                    , status = "Todo"
+                    , failures =
+                        [ ( [ "todo then passing" ]
+                          , [ { given = Nothing
+                              , message = "haven't done this yet"
+                              }
                             ]
-                        )
+                          )
+                        ]
+                    }
     , test "shows only in isolation" <|
         \_ ->
-            init (Fixtures.oneTest >> only)
-                |- App.update (App.Dispatch 5)
-                |- App.update (App.Dispatch 99)
-                |== Just ( 94, Runner.AutoFail 1 Runner.Only )
+            run (Fixtures.oneTest >> only)
+                |> expect
+                    { steps = 2
+                    , passed = 1
+                    , status = "AutoFail Only"
+                    , failures = []
+                    }
     , test "shows skip in isolation" <|
         \_ ->
-            init (Fixtures.noTests >> skip)
-                |- App.update (App.Dispatch 5)
-                |- App.update (App.Dispatch 99)
-                |== Just ( 94, Runner.AutoFail 0 Runner.Skip )
+            run (Fixtures.noTests >> skip)
+                |> expect
+                    { steps = 1
+                    , passed = 0
+                    , status = "AutoFail Skip"
+                    , failures = []
+                    }
     , test "invalid test shows custom reason" <|
         \_ ->
-            App.init 0 Nothing (describe "asdf" [])
-                |- App.update (App.Dispatch 5)
-                |== Just
-                        ( 0
-                        , Fixtures.description
-                            |> .invalid
-                            |> Runner.Custom
-                            |> Runner.AutoFail 0
-                        )
+            Runner.fromTest 0 (Random.initialSeed -1) (describe "asdf" [])
+                |> expect
+                    { steps = 1
+                    , passed = 0
+                    , status = "AutoFail Custom"
+                    , failures = []
+                    }
     ]
-        |> describe "Test.Runner.Html.App"
+        |> describe "Test.Runner.Exploration"
 
 
 main : Test.Runner.Html.TestProgram
@@ -133,37 +133,66 @@ main =
 -- HELPERS
 
 
-init : (() -> Test) -> ( App.Model, Cmd App.Msg )
-init f =
-    App.init 100 Nothing (f ())
+run : (() -> Test) -> Runner
+run f =
+    Runner.fromTest 100 (Random.initialSeed 1) (f ())
 
 
-expectRunning :
-    { passed : Int, remaining : Int, failures : List Runner.Failure }
-    -> App.Model
+expect :
+    { steps : Int
+    , passed : Int
+    , status : String
+    , failures :
+        List
+            ( List String
+            , List
+                { given : Maybe String
+                , message : String
+                }
+            )
+    }
+    -> Runner
     -> Expect.Expectation
-expectRunning expected model =
-    case App.present model of
-        Just ( _, Runner.Running { passed, remaining, failures } ) ->
-            Expect.equal
-                ( expected.passed, expected.remaining, expected.failures )
-                ( passed, remaining, failures )
+expect final runner =
+    let
+        format =
+            List.map (Runner.formatFailure identity identity)
+
+        expectFinal passed failures =
+            Expect.all
+                [ .passed >> flip Expect.equal passed
+                , .failures >> flip Expect.equal (format failures)
+                ]
+                final
+    in
+    case ( final.steps, final.status, Runner.step runner ) of
+        ( 1, "Running", Runner.Running { passed, failures } ) ->
+            expectFinal passed failures
+
+        ( 1, "Fail", Runner.Fail passed failures ) ->
+            expectFinal passed failures
+
+        ( 1, "Todo", Runner.Todo passed failures ) ->
+            expectFinal passed failures
+
+        ( 1, "Pass", Runner.Pass passed ) ->
+            Expect.equal passed final.passed
+
+        ( 1, "AutoFail Skip", Runner.AutoFail passed Runner.Skip ) ->
+            Expect.equal passed final.passed
+
+        ( 1, "AutoFail Only", Runner.AutoFail passed Runner.Only ) ->
+            Expect.equal passed final.passed
+
+        ( 1, "AutoFail Custom", Runner.AutoFail passed (Runner.Custom _) ) ->
+            Expect.equal passed final.passed
+
+        ( steps, _, Runner.Running { next } ) ->
+            expect { final | steps = steps - 1 } next
 
         _ ->
-            "Expected Runner.Running "
-                ++ toString expected
-                ++ " but got "
-                ++ toString model
-                |> Expect.fail
-
-
-(|-) : ( a, b ) -> (a -> c) -> c
-(|-) ( a, _ ) f =
-    f a
-infixl 0 |-
-
-
-(|==) : ( App.Model, b ) -> View.Model -> Expect.Expectation
-(|==) ( appModel, _ ) viewModel =
-    Expect.equal viewModel (App.present appModel)
-infixl 0 |==
+            Expect.fail <|
+                "Given: "
+                    ++ toString runner
+                    ++ "\nExpected: "
+                    ++ toString final

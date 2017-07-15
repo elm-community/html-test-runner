@@ -47,8 +47,6 @@ twoTests () =
         ]
 
 
-description : { invalid : String, noTests : String }
-description =
-    { invalid = "Test runner run count must be at least 1, not 0"
-    , noTests = "This `describe \"nothing\"` has no tests in it. Let's give it some!"
-    }
+noTestsDescription : String
+noTestsDescription =
+    "This `describe \"nothing\"` has no tests in it. Let's give it some!"
