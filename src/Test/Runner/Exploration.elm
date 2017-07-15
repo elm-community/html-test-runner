@@ -24,7 +24,7 @@ type alias Internals =
     , failures : List Failure
     , todos : List Failure
     , queue : List Test.Runner.Runner
-    , autoFail : Maybe Reason
+    , incomplete : Maybe Reason
     }
 
 
@@ -38,7 +38,7 @@ type Status
     | Pass Int
     | Fail Int (List Failure)
     | Todo Int (List Failure)
-    | AutoFail Int Reason
+    | Incomplete Int Reason
 
 
 type Reason
@@ -54,13 +54,13 @@ type Failure
 fromTest : Int -> Random.Pcg.Seed -> Test.Test -> Runner
 fromTest runs seed test =
     let
-        new queue autoFail =
+        new queue incomplete =
             Runner
                 { passed = 0
                 , failures = []
                 , todos = []
                 , queue = queue
-                , autoFail = autoFail
+                , incomplete = incomplete
                 }
     in
     case Test.Runner.fromTest runs seed test of
@@ -89,7 +89,7 @@ formatFailure formatFirst formatLast (Failure labels errors) =
 step : Runner -> Status
 step (Runner internals) =
     case
-        ( internals.autoFail
+        ( internals.incomplete
         , internals.todos
         , internals.failures
         , internals.queue
@@ -102,7 +102,7 @@ step (Runner internals) =
             Todo internals.passed todos
 
         ( Just reason, _, [], [] ) ->
-            AutoFail internals.passed reason
+            Incomplete internals.passed reason
 
         ( _, _, failures, [] ) ->
             Fail internals.passed failures

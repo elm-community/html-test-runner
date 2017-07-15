@@ -99,7 +99,7 @@ suite =
                 |> expect
                     { steps = 2
                     , passed = 1
-                    , status = "AutoFail Only"
+                    , status = "Incomplete Only"
                     , failures = []
                     }
     , test "shows skip in isolation" <|
@@ -108,7 +108,7 @@ suite =
                 |> expect
                     { steps = 1
                     , passed = 0
-                    , status = "AutoFail Skip"
+                    , status = "Incomplete Skip"
                     , failures = []
                     }
     , test "invalid test shows custom reason" <|
@@ -117,7 +117,7 @@ suite =
                 |> expect
                     { steps = 1
                     , passed = 0
-                    , status = "AutoFail Custom"
+                    , status = "Incomplete Custom"
                     , failures = []
                     }
     ]
@@ -178,13 +178,13 @@ expect final runner =
         ( 1, "Pass", Runner.Pass passed ) ->
             Expect.equal passed final.passed
 
-        ( 1, "AutoFail Skip", Runner.AutoFail passed Runner.Skip ) ->
+        ( 1, "Incomplete Skip", Runner.Incomplete passed Runner.Skip ) ->
             Expect.equal passed final.passed
 
-        ( 1, "AutoFail Only", Runner.AutoFail passed Runner.Only ) ->
+        ( 1, "Incomplete Only", Runner.Incomplete passed Runner.Only ) ->
             Expect.equal passed final.passed
 
-        ( 1, "AutoFail Custom", Runner.AutoFail passed (Runner.Custom _) ) ->
+        ( 1, "Incomplete Custom", Runner.Incomplete passed (Runner.Custom _) ) ->
             Expect.equal passed final.passed
 
         ( steps, _, Runner.Running { next } ) ->

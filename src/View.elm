@@ -127,17 +127,17 @@ view model =
                         |> finished duration passed failures
                         |> summarize failures
 
-                Just ( duration, Runner.AutoFail passed Runner.Only ) ->
+                Just ( duration, Runner.Incomplete passed Runner.Only ) ->
                     ( TodoColor, "Test Run Incomplete: Test.only was used" )
                         |> finished duration passed []
                         |> summarize []
 
-                Just ( duration, Runner.AutoFail passed Runner.Skip ) ->
+                Just ( duration, Runner.Incomplete passed Runner.Skip ) ->
                     ( TodoColor, "Test Run Incomplete: Test.skip was used" )
                         |> finished duration passed []
                         |> summarize []
 
-                Just ( duration, Runner.AutoFail passed (Runner.Custom reason) ) ->
+                Just ( duration, Runner.Incomplete passed (Runner.Custom reason) ) ->
                     ( TodoColor, "Test Run Incomplete: " ++ reason )
                         |> finished duration passed []
                         |> summarize []
