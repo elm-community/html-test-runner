@@ -6,6 +6,7 @@ import Element.Attributes exposing (..)
 import Html exposing (Html)
 import String
 import Style exposing (..)
+import Style.Border as Border
 import Style.Color as Color
 import Style.Font as Font
 import Test.Runner.Exploration as Runner
@@ -15,94 +16,113 @@ import Time exposing (Time)
 
 type Styles
     = None
-    | TestPane
-    | TestResult
     | Main
-    | TopBorder
-    | TestHeader
-    | TestSummary
-    | TestPanel
-    | Tests
-    | ColoredText TestColor
-    | GivenCode
+    | Results
+    | Test
+    | Header Palette
+    | Description Palette
+    | Given
 
 
-type TestColor
-    = FailColor
-    | SucceedColor
-    | TodoColor
+type Palette
+    = Primary
+    | Secondary
+    | Accent
+    | Background
+    | Good
+    | Bad
+    | Warning
 
 
-type alias Palette =
-    { primary : Color
-    , secondary : Color
-    , accent : Color
-    , background : Color
-    }
+color : Palette -> Color
+color palette =
+    case palette of
+        Primary ->
+            rgb 41 60 75
+
+        Secondary ->
+            -- gray color on elm blog is rgb 221 221 221 but it doesn't meet
+            -- accessibility standards for contrast http://webaim.org/resources/contrastchecker/
+            rgb 84 84 84
+
+        Accent ->
+            rgb 96 181 204
+
+        Background ->
+            rgb 255 255 255
+
+        Good ->
+            rgb 0 100 0
+
+        Bad ->
+            rgb 179 0 0
+
+        Warning ->
+            rgb 122 67 0
 
 
-palette : Palette
-palette =
-    { primary = rgb 41 60 75
-    , secondary = rgb 84 84 84
-
-    -- gray color on elm blog is rgb 221 221 221 but it doesn't meet
-    -- accessibility standards for contrast http://webaim.org/resources/contrastchecker/
-    , accent = rgb 96 181 204
-    , background = rgb 255 255 255
-    }
+withColor :
+    (Palette -> class)
+    -> List (Property class variation)
+    -> List (Style class variation)
+withColor toStyle attributes =
+    let
+        withColorHelp p =
+            style
+                (toStyle p)
+                (Color.text (color p) :: attributes)
+    in
+    List.map withColorHelp
+        [ Primary
+        , Secondary
+        , Accent
+        , Background
+        , Good
+        , Bad
+        , Warning
+        ]
 
 
 stylesheet : StyleSheet Styles variation
 stylesheet =
-    Style.stylesheet
-        [ style None []
-        , style TestPane
-            [ Color.text palette.primary
-            , Color.background palette.background
-            , Color.border palette.secondary
-            ]
-        , style TestResult
+    [ [ style None []
+      , style Results
             []
-        , style Main
+      , style Main
             [ Color.text (rgb 41 60 75)
-            , Font.typeface [ "Source Sans Pro", "Trebuchet MS", "Lucida Grande", "Bitstream Vera Sans", "Helvetica Neue", "sans-serif" ]
+            , Color.border (color Accent)
+            , Font.typeface
+                [ "Source Sans Pro"
+                , "Trebuchet MS"
+                , "Lucida Grande"
+                , "Bitstream Vera Sans"
+                , "Helvetica Neue"
+                , "sans-serif"
+                ]
+            , Border.top 8
+            , Style.paddingHint 20
             ]
-        , style TopBorder
-            [ Color.background palette.accent
-            , paddingHint 4
-            ]
-        , style TestHeader
-            [ Color.text Color.red
-            , Font.size 20
-            ]
-        , style TestSummary
-            [ paddingHint 2 ]
-        , style TestPanel []
-        , style Tests []
-        , style (ColoredText FailColor) [ Color.text Color.red ]
-        , style (ColoredText SucceedColor) [ Color.text Color.green ]
-        , style (ColoredText TodoColor) [ Color.text Color.darkYellow ]
-        , style GivenCode [ Color.text Color.gray ]
-        ]
+      , style Test []
+      , style Given
+            [ Color.text (color Primary) ]
+      ]
+    , withColor Description []
+    , withColor Header [ Font.size 24, Font.bold, paddingBottomHint 24 ]
+    ]
+        |> List.concat
+        |> Style.stylesheet
 
 
 appContainer : Element Styles variations msg -> Element Styles variations msg
 appContainer tests =
     column Main
         [ height (fill 1) ]
-        [ topBorder
-        , row None
+        [ row None
             [ height (fill 1)
             , width (fill 1)
             ]
             [ tests ]
         ]
-
-
-topBorder : Element Styles variations msg
-topBorder =
-    el TopBorder [] Element.empty
 
 
 view : View.Model -> Html a
@@ -113,37 +133,37 @@ view model =
                 Nothing ->
                     "Loading Tests..."
                         |> text
-                        |> el TestHeader []
+                        |> el (Header Primary) []
                         |> header
                         |> summarize []
 
                 Just ( duration, Runner.Pass passed ) ->
-                    ( SucceedColor, "Test Run Passed" )
+                    ( Good, "Test Run Passed" )
                         |> finished duration passed []
                         |> summarize []
 
                 Just ( duration, Runner.Todo passed failures ) ->
-                    ( TodoColor, "Test Run Incomplete: TODO's remaining" )
+                    ( Warning, "Test Run Incomplete: TODO's remaining" )
                         |> finished duration passed failures
                         |> summarize failures
 
                 Just ( duration, Runner.Incomplete passed Runner.Only ) ->
-                    ( TodoColor, "Test Run Incomplete: Test.only was used" )
+                    ( Warning, "Test Run Incomplete: Test.only was used" )
                         |> finished duration passed []
                         |> summarize []
 
                 Just ( duration, Runner.Incomplete passed Runner.Skip ) ->
-                    ( TodoColor, "Test Run Incomplete: Test.skip was used" )
+                    ( Warning, "Test Run Incomplete: Test.skip was used" )
                         |> finished duration passed []
                         |> summarize []
 
                 Just ( duration, Runner.Incomplete passed (Runner.Custom reason) ) ->
-                    ( TodoColor, "Test Run Incomplete: " ++ reason )
+                    ( Warning, "Test Run Incomplete: " ++ reason )
                         |> finished duration passed []
                         |> summarize []
 
                 Just ( duration, Runner.Fail passed failures ) ->
-                    ( FailColor, "Test Run Failed" )
+                    ( Bad, "Test Run Failed" )
                         |> finished duration passed failures
                         |> summarize failures
 
@@ -156,20 +176,20 @@ running : Int -> Int -> Element Styles variations msg
 running completed remaining =
     column None
         []
-        [ header <| el TestHeader [] (text "Running Tests...")
+        [ header <| el (Header Primary) [] (text "Running Tests...")
         , row None [] [ text (toString completed ++ " completed") ]
         , row None [] [ text (toString remaining ++ " remaining") ]
         ]
 
 
-finished : Time -> Int -> List a -> ( TestColor, String ) -> Element Styles variation msg
+finished : Time -> Int -> List a -> ( Palette, String ) -> Element Styles variation msg
 finished duration passed failures ( headlineColor, headlineText ) =
     column None
-        [ spacing 10, padding 10 ]
-        [ row TestHeader [] [ header (text headlineText) ]
+        []
+        [ row (Header headlineColor) [] [ header (text headlineText) ]
         , row None
             []
-            [ table TestResult
+            [ table Results
                 [ spacing 10 ]
                 [ [ bold "Duration", bold "Passed", bold "Failed" ]
                 , [ text (formatDuration duration)
@@ -183,8 +203,8 @@ finished duration passed failures ( headlineColor, headlineText ) =
 
 summarize : List Runner.Failure -> Element Styles variation msg -> Element Styles variation msg
 summarize failures summary =
-    column TestPanel
-        [ padding 10, maxWidth (px 700) ]
+    column Test
+        [ maxWidth (px 700) ]
         [ wrappedRow None [] [ summary ]
         , wrappedRow None [] [ viewFailures failures ]
         ]
@@ -192,10 +212,9 @@ summarize failures summary =
 
 viewFailures : List Runner.Failure -> Element Styles variation msg
 viewFailures failures =
-    list Ordered
-        None
-        []
-        (List.map viewFailure failures)
+    List.map (viewFailure >> node "li") failures
+        |> column None [ inlineStyle [ ( "display", "block" ), ( "margin", "10px" ), ( "padding", "10px" ) ] ]
+        |> node "ol"
 
 
 viewFailure : Runner.Failure -> Element Styles variations msg
@@ -203,8 +222,8 @@ viewFailure failure =
     let
         ( labels, expectations ) =
             Runner.formatFailure
-                (withTestColor '↓' TodoColor)
-                (withTestColor '✗' FailColor)
+                (withTestColor '↓' Secondary)
+                (withTestColor '✗' Bad)
                 failure
 
         inContext { given, message } =
@@ -223,18 +242,14 @@ viewFailure failure =
         )
 
 
-
--- HELPERS
-
-
 viewGiven : String -> Element Styles variations msg
 viewGiven value =
-    code GivenCode [ inlineStyle [ ( "white-space", "pre-wrap" ) ] ] ("Given " ++ value)
+    code Given [ inlineStyle [ ( "white-space", "pre-wrap" ) ] ] ("Given " ++ value)
 
 
-withTestColor : Char -> TestColor -> String -> Element Styles variation msg
+withTestColor : Char -> Palette -> String -> Element Styles variation msg
 withTestColor char textColor str =
-    column (ColoredText textColor)
+    column (Description textColor)
         []
         [ text (String.cons char (String.cons ' ' str)) ]
 
@@ -242,29 +257,6 @@ withTestColor char textColor str =
 formatDuration : Time -> String
 formatDuration time =
     toString time ++ " ms"
-
-
-
--- STYLE ELEMENTS HELPERS
-
-
-type Ordered
-    = Ordered
-    | Unordered
-
-
-list : Ordered -> Styles -> List (Element.Attribute variation msg) -> List (Element Styles variation msg) -> Element Styles variation msg
-list ordered style attrs els =
-    let
-        elements =
-            List.map (node "li") els
-    in
-    case ordered of
-        Ordered ->
-            node "ol" (column None [ inlineStyle [ ( "display", "block" ), ( "margin", "10px" ), ( "padding", "10px" ) ] ] elements)
-
-        Unordered ->
-            node "ul" (column None [ inlineStyle [ ( "display", "block" ), ( "margin", "10px" ), ( "padding", "10px" ) ] ] elements)
 
 
 code : style -> List (Element.Attribute variations msg) -> String -> Element style variations msg
