@@ -16,12 +16,12 @@ import Time exposing (Time)
 
 view : View.Model -> Html a
 view model =
-    Element.viewport stylesheet (main_ model)
+    Element.viewport stylesheet (app model)
 
 
 type Styles
     = None
-    | Main
+    | App
     | Stats
     | Test
     | Header Palette
@@ -92,7 +92,7 @@ stylesheet =
     [ [ style None []
       , style Stats
             []
-      , style Main
+      , style App
             [ Color.text (color Primary)
             , Color.border (color Accent)
             , Font.typeface
@@ -114,11 +114,11 @@ stylesheet =
         |> Style.stylesheet
 
 
-main_ : View.Model -> Element Styles variations msg
-main_ model =
+app : View.Model -> Element Styles variations msg
+app model =
     let
         wrapper nested =
-            el Main
+            el App
                 [ padding 20 ]
                 (el None [ center, width (px 960) ] nested)
     in
