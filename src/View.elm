@@ -22,8 +22,6 @@ view model =
 type Styles
     = None
     | App
-    | Stats
-    | Test
     | Header Palette
     | Description Palette
 
@@ -89,8 +87,7 @@ withColor toStyle attributes =
 
 stylesheet : StyleSheet Styles variation
 stylesheet =
-    [ [ style None []
-      , style Stats
+    [ [ style None
             []
       , style App
             [ Color.text (color Primary)
@@ -105,10 +102,14 @@ stylesheet =
                 ]
             , Border.top 8
             ]
-      , style Test []
       ]
-    , withColor Description []
-    , withColor Header [ Font.size 24, Font.bold, paddingBottomHint 24 ]
+    , withColor Description
+        []
+    , withColor Header
+        [ Font.size 24
+        , Font.bold
+        , paddingBottomHint 24
+        ]
     ]
         |> List.concat
         |> Style.stylesheet
@@ -129,41 +130,41 @@ app model =
                     |> text
                     |> el (Header Primary) []
                     |> header
-                    |> summarize []
+                    |> summary []
 
             Just ( duration, Runner.Pass passed ) ->
                 ( Good, "Test Run Passed" )
                     |> finished duration passed []
-                    |> summarize []
+                    |> summary []
 
             Just ( duration, Runner.Todo passed failures ) ->
                 ( Warning, "Test Run Incomplete: TODO's remaining" )
                     |> finished duration passed failures
-                    |> summarize failures
+                    |> summary failures
 
             Just ( duration, Runner.Incomplete passed Runner.Only ) ->
                 ( Warning, "Test Run Incomplete: Test.only was used" )
                     |> finished duration passed []
-                    |> summarize []
+                    |> summary []
 
             Just ( duration, Runner.Incomplete passed Runner.Skip ) ->
                 ( Warning, "Test Run Incomplete: Test.skip was used" )
                     |> finished duration passed []
-                    |> summarize []
+                    |> summary []
 
             Just ( duration, Runner.Incomplete passed (Runner.Custom reason) ) ->
                 ( Warning, "Test Run Incomplete: " ++ reason )
                     |> finished duration passed []
-                    |> summarize []
+                    |> summary []
 
             Just ( duration, Runner.Fail passed failures ) ->
                 ( Bad, "Test Run Failed" )
                     |> finished duration passed failures
-                    |> summarize failures
+                    |> summary failures
 
             Just ( duration, Runner.Running { passed, failures, remaining } ) ->
                 running (passed + List.length failures) remaining
-                    |> summarize failures
+                    |> summary failures
 
 
 running : Int -> Int -> Element Styles variations msg
@@ -183,10 +184,10 @@ finished duration passed failures ( headlineColor, headlineText ) =
         [ row (Header headlineColor) [] [ header (text headlineText) ]
         , row None
             []
-            [ table Stats
+            [ table None
                 [ spacing 10 ]
                 [ [ bold "Duration", bold "Passed", bold "Failed" ]
-                , [ text (formatDuration duration)
+                , [ text (formattedDuration duration)
                   , text (toString passed)
                   , text (toString (List.length failures))
                   ]
@@ -195,11 +196,11 @@ finished duration passed failures ( headlineColor, headlineText ) =
         ]
 
 
-summarize : List Runner.Failure -> Element Styles variation msg -> Element Styles variation msg
-summarize failures summary =
-    column Test
+summary : List Runner.Failure -> Element Styles variation msg -> Element Styles variation msg
+summary failures message =
+    column None
         []
-        [ wrappedRow None [] [ summary ]
+        [ wrappedRow None [] [ message ]
         , wrappedRow None [] [ allFailures failures ]
         ]
 
@@ -219,8 +220,8 @@ oneFailure failure =
     let
         ( labels, expectations ) =
             Runner.formatFailure
-                (withTestColor '↓' Secondary)
-                (withTestColor '✗' Bad)
+                (coloredLabel '↓' Secondary)
+                (coloredLabel '✗' Bad)
                 failure
 
         inContext { given, message } =
@@ -248,15 +249,15 @@ givenCode value =
     code None ("Given " ++ value)
 
 
-withTestColor : Char -> Palette -> String -> Element Styles variation msg
-withTestColor char textColor str =
+coloredLabel : Char -> Palette -> String -> Element Styles variation msg
+coloredLabel char textColor str =
     column (Description textColor)
         []
         [ text (String.cons char (String.cons ' ' str)) ]
 
 
-formatDuration : Time -> String
-formatDuration time =
+formattedDuration : Time -> String
+formattedDuration time =
     toString time ++ " ms"
 
 
