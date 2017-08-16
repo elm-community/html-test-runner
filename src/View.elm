@@ -119,9 +119,12 @@ app : View.Model -> Element Styles variations msg
 app model =
     let
         wrapper nested =
-            el App
+            row App
                 [ padding 20 ]
-                (el None [ center, width (px 960) ] nested)
+                [ el None [ width (fill 1) ] empty
+                , el None [ width (px 960) ] nested
+                , el None [ width (fill 1) ] empty
+                ]
     in
     wrapper <|
         case model of
