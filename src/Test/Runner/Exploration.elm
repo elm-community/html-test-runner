@@ -129,12 +129,12 @@ fromExpectation internals labels expectations =
                 ( _, Nothing ) ->
                     identity
     in
-    if List.isEmpty failures && List.isEmpty todos then
+    if not <| List.isEmpty failures then
         toRunning
             { internals
-                | passed = internals.passed + 1
+                | failures = internals.failures ++ [ Failure labels failures ]
             }
-    else if List.isEmpty failures then
+    else if not <| List.isEmpty todos then
         toRunning
             { internals
                 | todos = internals.todos ++ [ Failure labels todos ]
@@ -142,7 +142,7 @@ fromExpectation internals labels expectations =
     else
         toRunning
             { internals
-                | failures = internals.failures ++ [ Failure labels failures ]
+                | passed = internals.passed + 1
             }
 
 
