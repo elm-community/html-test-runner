@@ -266,6 +266,9 @@ code : style -> String -> Element style variations msg
 code style str =
     node "pre" <|
         el style
-            [ inlineStyle [ ( "white-space", "pre-wrap" ) ]
+            [ inlineStyle
+                [ ( "white-space", "pre-wrap" )
+                , ( "font-family", "monospace" )
+                ]
             ]
             (text str)
