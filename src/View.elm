@@ -16,7 +16,7 @@ import Time exposing (Time)
 
 view : View.Model -> Html a
 view model =
-    Element.viewport stylesheet (app model)
+    Element.viewport styleSheet (app model)
 
 
 type Styles
@@ -85,20 +85,20 @@ withColor toStyle attributes =
         ]
 
 
-stylesheet : StyleSheet Styles variation
-stylesheet =
+styleSheet : StyleSheet Styles variation
+styleSheet =
     [ [ style None
             []
       , style App
             [ Color.text (color Primary)
             , Color.border (color Accent)
             , Font.typeface
-                [ "Source Sans Pro"
-                , "Trebuchet MS"
-                , "Lucida Grande"
-                , "Bitstream Vera Sans"
-                , "Helvetica Neue"
-                , "sans-serif"
+                [ Font.font "Source Sans Pro"
+                , Font.font "Trebuchet MS"
+                , Font.font "Lucida Grande"
+                , Font.font "Bitstream Vera Sans"
+                , Font.font "Helvetica Neue"
+                , Font.sansSerif
                 ]
             , Border.top 8
             ]
@@ -108,11 +108,10 @@ stylesheet =
     , withColor Header
         [ Font.size 24
         , Font.bold
-        , paddingBottomHint 24
         ]
     ]
         |> List.concat
-        |> Style.stylesheet
+        |> Style.styleSheet
 
 
 app : View.Model -> Element Styles variations msg
@@ -121,9 +120,9 @@ app model =
         wrapper nested =
             row App
                 [ padding 20 ]
-                [ el None [ width (fill 1) ] empty
+                [ el None [ width fill ] empty
                 , el None [ width (px 960) ] nested
-                , el None [ width (fill 1) ] empty
+                , el None [ width fill ] empty
                 ]
     in
     wrapper <|
@@ -131,8 +130,7 @@ app model =
             Nothing ->
                 "Loading Tests..."
                     |> text
-                    |> el (Header Primary) []
-                    |> header
+                    |> header (Header Primary) [ paddingBottom 24 ]
                     |> summary []
 
             Just ( duration, Runner.Pass passed ) ->
@@ -174,7 +172,7 @@ running : Int -> Int -> Element Styles variations msg
 running completed remaining =
     column None
         []
-        [ header <| el (Header Primary) [] (text "Running Tests...")
+        [ header (Header Primary) [ paddingBottom 24 ] (text "Running Tests...")
         , row None [] [ text (toString completed ++ " completed") ]
         , row None [] [ text (toString remaining ++ " remaining") ]
         ]
@@ -184,7 +182,7 @@ finished : Time -> Int -> List a -> ( Palette, String ) -> Element Styles variat
 finished duration passed failures ( headlineColor, headlineText ) =
     column None
         []
-        [ row (Header headlineColor) [] [ header (text headlineText) ]
+        [ header (Header headlineColor) [ paddingBottom 24 ] (text headlineText)
         , row None
             []
             [ table None
